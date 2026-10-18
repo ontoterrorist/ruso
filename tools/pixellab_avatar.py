@@ -27,7 +27,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 SALIDA = os.path.join(AQUI, '..', 'avatar')
 
 BASE = ('pixel art bust portrait of Masha, a young Russian woman, blonde hair pulled back '
-        'into a ponytail resting over her shoulder, forehead uncovered, one loose strand, gray-blue eyes, light freckles, burgundy turtleneck '
+        'into a ponytail resting over her shoulder, forehead uncovered, one loose strand, gray-blue eyes, clear skin, burgundy turtleneck '
         'sweater, holding a white tea mug with a red folk pattern, front view, centered, '
         'warm soft lighting, clean outline')
 EXPRESIONES = {

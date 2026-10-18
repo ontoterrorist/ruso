@@ -77,9 +77,8 @@ const Masha = (() => {
       /* cara */
       '<path d="M79 100 C79 62 161 62 161 100 C161 138 146 162 120 165 C94 162 79 138 79 100 Z" fill="' + SKIN + '"/>' +
       '<path d="M100 158 Q120 168 140 158 Q130 166 120 166 Q110 166 100 158 Z" fill="' + SKIN_SH + '" opacity=".6"/>' +
-      /* nariz y pecas */
+      /* nariz */
       '<path d="M121 115 C119 124 116 128 121 130.5" fill="none" stroke="' + SKIN_SH + '" stroke-width="2.2" stroke-linecap="round"/>' +
-      '<g fill="#c99a7e" opacity=".55"><circle cx="108" cy="122" r="1"/><circle cx="112" cy="125" r="1"/><circle cx="104" cy="125" r="1"/><circle cx="132" cy="122" r="1"/><circle cx="128" cy="125" r="1"/><circle cx="136" cy="125" r="1"/></g>' +
       '<g class="m-face">' + face(expr || 'neutral') + '</g>' +
       /* cola de caballo sobre el hombro, con su gomita */
       '<path d="M70 94 C50 106 44 140 52 168 C58 190 52 210 44 228 C56 236 72 230 78 214 C86 190 80 160 83 132 C85 116 82 102 70 94 Z" fill="' + HAIR + '"/>' +
