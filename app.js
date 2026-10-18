@@ -1,4 +1,4 @@
-/* Ruso Advance — lógica de la app: lecciones, repaso espaciado, voz y vistas. */
+/* Aprende ruso — lógica de la app: lecciones, repaso espaciado, voz y vistas. */
 (() => {
   'use strict';
 
@@ -388,7 +388,7 @@
     $$('#nav a').forEach(a => a.classList.remove('on'));
     if (!S.name) {
       say('Привет. Soy Masha. Voy a ser tu profesora de ruso. Primero lo primero: ¿cómo te llamas?', 'neutral');
-      main.innerHTML = `<div class="card onboard"><div class="kicker">Bienvenida</div><h1>Ruso Advance</h1>
+      main.innerHTML = `<div class="card onboard"><div class="kicker">Bienvenida</div><h1>Aprende ruso</h1>
         <p>Vas a aprender ruso <b>conversando</b>: cada lección es una charla con Masha, unas frases clave y una idea pequeña de gramática. Después, el <b>repaso espaciado</b> te vuelve a preguntar cada cosa justo cuando estás a punto de olvidarla.</p>
         <label for="nm"><b>¿Cómo te llamas?</b></label>
         <input type="text" id="nm" maxlength="24" autocomplete="given-name" placeholder="Tu nombre">
@@ -1000,7 +1000,7 @@
         <p class="muted small">Se guarda solo en este navegador. Puedes descargarlo para pasarlo a otro dispositivo.</p>
         <div class="row"><button class="btn" id="exp">Descargar copia</button><label class="btn" for="imp" style="margin:0">Cargar copia</label><input type="file" id="imp" accept="application/json,.json" hidden><span class="grow"></span><button class="btn red" id="reset">Borrar todo</button></div>
       </div>
-      <p class="muted small center">Ruso Advance · Masha y su gato Pelmén te esperan cada día.</p>`;
+      <p class="muted small center">Aprende ruso · Masha y su gato Pelmén te esperan cada día.</p>`;
     $$('[data-set]').forEach(c => c.onchange = () => { S.set[c.dataset.set] = c.checked; save(); });
     $('#s-name').onchange = e => { const v = e.target.value.trim(); if (v) { S.name = v; save(); toast('Nombre guardado'); } };
     $$('[data-g]').forEach(b => b.onclick = () => { S.g = b.dataset.g; save(); renderSettings(); });
@@ -1020,7 +1020,7 @@
     $('#exp').onclick = () => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' }));
-      a.download = 'ruso-advance-' + new Date().toLocaleDateString('sv') + '.json';
+      a.download = 'aprende-ruso-' + new Date().toLocaleDateString('sv') + '.json';
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     };
     $('#imp').onchange = e => {
@@ -1029,7 +1029,7 @@
         const s = JSON.parse(t);
         if (!s || typeof s.cards !== 'object') throw new Error('formato');
         S = { ...fresh(), ...s, set: { ...DEFAULT_SET, ...(s.set || {}) } }; save(); toast('Progreso cargado'); route();
-      }).catch(() => say('Ese archivo no es una copia de Ruso Advance. ¿Me quieres engañar?', 'annoyed'));
+      }).catch(() => say('Ese archivo no es una copia de Aprende ruso. ¿Me quieres engañar?', 'annoyed'));
     };
     $('#reset').onclick = () => {
       if (!confirm('¿Borrar todo tu progreso? No se puede deshacer.')) return;

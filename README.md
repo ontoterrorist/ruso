@@ -1,4 +1,4 @@
-# Ruso Advance
+# Aprende ruso
 
 Una app para aprender ruso en el navegador **conversando con Masha**: una profesora de San Petersburgo, medio enojona y bastante cínica, pero amable en el fondo. Vive con su gato Pelmén y toma demasiado té.
 
