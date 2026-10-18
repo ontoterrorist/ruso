@@ -46,7 +46,26 @@ LESSONS.forEach((L, i) => {
     if (new Set(d.o).size !== d.o.length) errs.push(W + '.drill' + j + ': opciones repetidas');
   });
 });
-console.log(LESSONS.length + ' lecciones, ' + LEVELS.length + ' niveles');
+// gramática por temas: cada nota en un solo tema; tablas con acentos bien puestos
+vm.runInContext(fs.readFileSync(path.join(root, 'gramatica.js'), 'utf8') + ';this.GTOPICS=GTOPICS;this.TABLES=TABLES;', ctx);
+const inTopics = ctx.GTOPICS.flatMap(t => t.g);
+LESSONS.forEach(L => { const n = inTopics.filter(g => g === L.grammar.id).length; if (n !== 1) errs.push(L.grammar.id + ': está en ' + n + ' temas'); });
+ctx.TABLES.forEach(T => { T.rows.flat().forEach(c => checkRu(c, 'tabla ' + T.id)); if (T.extra) T.extra.cells.forEach(c => checkRu(c, 'tabla ' + T.id)); });
+// palabras: [ruso, español, clase, nota, ejemplo, traducción, posición en el ejemplo]
+ctx.window = ctx;
+vm.runInContext(fs.readFileSync(path.join(root, 'vocab', 'palabras.js'), 'utf8'), ctx);
+const seenW = new Set();
+ctx.VOCAB.forEach((w, i) => {
+  const W = 'palabra ' + (i + 1) + ' ' + w[0];
+  if (w.length !== 7 || !w[0] || !w[1] || !w[4] || !w[5]) errs.push(W + ': campos incompletos');
+  if (seenW.has(w[0])) errs.push(W + ': repetida'); seenW.add(w[0]);
+  [w[0], w[3], w[4]].forEach(t => checkRu(t, W));
+  for (const t of [w[0], w[4]]) for (const x of (t.match(/[а-яёА-ЯЁ']+/g) || [])) {
+    const nv = [...x].filter(c => VOW.includes(c)).length;
+    if (nv >= 2 && !/[ёЁ]/.test(x) && !x.includes("'")) warn.push(W + ': sin acento «' + x + '»');
+  }
+});
+console.log(LESSONS.length + ' lecciones, ' + LEVELS.length + ' niveles, ' + ctx.GTOPICS.length + ' temas de gramática, ' + ctx.VOCAB.length + ' palabras');
 warn.forEach(w => console.log('aviso: ' + w));
 errs.forEach(e => console.log('ERROR: ' + e));
 process.exit(errs.length ? 1 : 0);

@@ -1,0 +1,142 @@
+/* Modalidad «Gramática»: las 121 notas del curso agrupadas por tema, y tablas de consulta.
+   En las tablas, cada celda se puede tocar para oírla (el motor de voz tiene su audio). */
+const GTOPICS = [
+  { id: 'base', title: 'Primeros pasos', es: 'Sonidos, pronombres, preguntas y frases básicas', g: ['g0', 'g1', 'g2', 'g4', 'g5', 'g22'] },
+  { id: 'casos', title: 'Sustantivos y casos', es: 'Plural y los seis casos: para qué sirve cada uno', g: ['g25', 'g6', 'g27', 'g3', 'g7', 'g17', 'g28', 'g29', 'g67', 'g35', 'g36', 'g66', 'g23', 'g63', 'g64', 'g65', 'g11', 'g34', 'g119'] },
+  { id: 'pron', title: 'Pronombres', es: 'Pronombres en todos los casos, свой, себя, nadie, alguien', g: ['g46', 'g44', 'g45', 'g82', 'g69', 'g70', 'g105'] },
+  { id: 'adj', title: 'Adjetivos y comparación', es: 'Concordancia, adjetivos declinados y cortos, comparar', g: ['g26', 'g41', 'g42', 'g75', 'g39', 'g40', 'g103'] },
+  { id: 'verb', title: 'Verbos', es: 'Presente, pasado, futuro, imperativo, -ся y verbos clave', g: ['g8', 'g12', 'g13', 'g14', 'g15', 'g24', 'g47', 'g48', 'g37', 'g38', 'g106', 'g76', 'g77', 'g78', 'g100', 'g109', 'g116'] },
+  { id: 'asp', title: 'El aspecto', es: 'Imperfectivo y perfectivo: proceso o resultado', g: ['g21', 'g59', 'g60', 'g97', 'g98', 'g99'] },
+  { id: 'mov', title: 'Verbos de movimiento', es: 'Идти/ходить, ехать/ездить, prefijos, llevar', g: ['g16', 'g49', 'g50', 'g53', 'g51', 'g52', 'g54', 'g55', 'g56', 'g108'] },
+  { id: 'num', title: 'Números, horas y fechas', es: 'Contar, la edad, la hora, días, meses, años y dinero', g: ['g9', 'g30', 'g31', 'g32', 'g33', 'g62', 'g68', 'g57', 'g83', 'g104', 'g117'] },
+  { id: 'or', title: 'Oraciones compuestas', es: 'Который, если, ли, чтобы, бы, causas y concesiones', g: ['g43', 'g58', 'g71', 'g72', 'g73', 'g110', 'g74', 'g111', 'g80', 'g81', 'g102'] },
+  { id: 'part', title: 'Participios y gerundios', es: 'Las formas del ruso escrito', g: ['g85', 'g86', 'g87', 'g88', 'g89', 'g90'] },
+  { id: 'exp', title: 'Expresiones y estilo', es: 'Pedir, sentir, registro, partículas, coloquial, argumentar', g: ['g10', 'g18', 'g19', 'g20', 'g79', 'g94', 'g61', 'g84', 'g93', 'g92', 'g91', 'g101', 'g107', 'g95', 'g96', 'g112', 'g113', 'g114', 'g115', 'g118', 'g120'] },
+];
+
+const CASOS = ['Nominativo · кто? что?', "Genitivo · кого'? чего'?", "Dativo · кому'? чему'?", "Acusativo · кого'? что?", 'Instrumental · кем? чем?', 'Prepositivo · о ком? о чём?'];
+const TABLES = [
+  {
+    id: 'sust1', title: 'Sustantivos en singular',
+    note: "En acusativo, los masculinos de persona o animal toman la forma del genitivo: я ви'жу бра'та.",
+    head: ['', 'masc.', 'masc. -й', 'neutro -о', 'fem. -а', 'fem. -я', 'fem. -ь'],
+    rows: [
+      ['стол', "музе'й", "окно'", "ма'ма", "неде'ля", 'ночь'],
+      ["стола'", "музе'я", "окна'", "ма'мы", "неде'ли", "но'чи"],
+      ["столу'", "музе'ю", "окну'", "ма'ме", "неде'ле", "но'чи"],
+      ['стол', "музе'й", "окно'", "ма'му", "неде'лю", 'ночь'],
+      ["столо'м", "музе'ем", "окно'м", "ма'мой", "неде'лей", "но'чью"],
+      ["о столе'", "о музе'е", "об окне'", "о ма'ме", "о неде'ле", "о но'чи"],
+    ],
+  },
+  {
+    id: 'sust2', title: 'Sustantivos en plural',
+    note: "En plural, dativo (-ам), instrumental (-ами) y prepositivo (-ах) son iguales para los tres géneros. El acusativo es como el nominativo, o como el genitivo si son personas o animales: я ви'жу мам.",
+    head: ['', 'masc.', 'masc. -й', 'neutro -о', 'fem. -а', 'fem. -я', 'fem. -ь'],
+    rows: [
+      ["столы'", "музе'и", "о'кна", "ма'мы", "неде'ли", "но'чи"],
+      ["столо'в", "музе'ев", "о'кон", 'мам', "неде'ль", "ноче'й"],
+      ["стола'м", "музе'ям", "о'кнам", "ма'мам", "неде'лям", "ноча'м"],
+      ["столы'", "музе'и", "о'кна", 'мам', "неде'ли", "но'чи"],
+      ["стола'ми", "музе'ями", "о'кнами", "ма'мами", "неде'лями", "ноча'ми"],
+      ["о стола'х", "о музе'ях", "об о'кнах", "о ма'мах", "о неде'лях", "о ноча'х"],
+    ],
+  },
+  {
+    id: 'adj', title: 'Adjetivos',
+    note: "Después de г, к, х, ж, ш, ч, щ se escribe и en vez de ы: ру'сский, хоро'шие. Con el acento en la terminación, el masculino acaba en -о'й: большо'й. En acusativo masculino y plural: como el nominativo para cosas, como el genitivo para personas.",
+    head: ['', 'masculino', 'neutro', 'femenino', 'plural'],
+    rows: [
+      ["но'вый", "но'вое", "но'вая", "но'вые"],
+      ["но'вого", "но'вого", "но'вой", "но'вых"],
+      ["но'вому", "но'вому", "но'вой", "но'вым"],
+      ["но'вый, но'вого", "но'вое", "но'вую", "но'вые, но'вых"],
+      ["но'вым", "но'вым", "но'вой", "но'выми"],
+      ["о но'вом", "о но'вом", "о но'вой", "о но'вых"],
+    ],
+  },
+  {
+    id: 'pron', title: 'Pronombres personales',
+    note: "Después de una preposición, его', ему', их… llevan н delante: у него', к ней, с ни'ми.",
+    head: ['', 'yo', 'tú', 'él', 'ella', 'nosotros', 'ustedes', 'ellos'],
+    rows: [
+      ['я', 'ты', 'он', "она'", 'мы', 'вы', "они'"],
+      ["меня'", "тебя'", "его'", 'её', 'нас', 'вас', 'их'],
+      ['мне', "тебе'", "ему'", 'ей', 'нам', 'вам', 'им'],
+      ["меня'", "тебя'", "его'", 'её', 'нас', 'вас', 'их'],
+      ['мной', "тобо'й", 'им', 'ей', "на'ми", "ва'ми", "и'ми"],
+      ["обо мне", "о тебе'", 'о нём', 'о ней', 'о нас', 'о вас', 'о них'],
+    ],
+  },
+  {
+    id: 'pos', title: "Мой y э'тот",
+    note: "Твой y свой van igual que мой; наш y ваш, casi igual: на'шего, на'шему, на'шей. Тот va como э'тот: того', тому', той.",
+    head: ['', 'мой (m.)', 'моё (n.)', "моя' (f.)", "мои' (pl.)", "э'тот (m.)", "э'та (f.)", "э'ти (pl.)"],
+    rows: [
+      ['мой', 'моё', "моя'", "мои'", "э'тот", "э'та", "э'ти"],
+      ["моего'", "моего'", "мое'й", "мои'х", "э'того", "э'той", "э'тих"],
+      ["моему'", "моему'", "мое'й", "мои'м", "э'тому", "э'той", "э'тим"],
+      ["мой, моего'", 'моё', "мою'", "мои', мои'х", "э'тот, э'того", "э'ту", "э'ти, э'тих"],
+      ["мои'м", "мои'м", "мое'й", "мои'ми", "э'тим", "э'той", "э'тими"],
+      ['о моём', 'о моём', "о мое'й", "о мои'х", "об э'том", "об э'той", "об э'тих"],
+    ],
+  },
+  {
+    id: 'pres', title: 'El presente',
+    note: "Hay dos conjugaciones: la de -ешь, -ут (чита'ть) y la de -ишь, -ят (говори'ть). Algunos verbos muy usados son irregulares: apréndelos de memoria.",
+    side: ['я', 'ты', "он, она'", 'мы', 'вы', "они'"],
+    head: ['', "чита'ть", "говори'ть", "занима'ться", "хоте'ть", "мочь", "идти'", "е'хать", "есть"],
+    cols: true,
+    rows: [
+      ["чита'ю", "говорю'", "занима'юсь", "хочу'", "могу'", "иду'", "е'ду", 'ем'],
+      ["чита'ешь", "говори'шь", "занима'ешься", "хо'чешь", "мо'жешь", 'идёшь', "е'дешь", 'ешь'],
+      ["чита'ет", "говори'т", "занима'ется", "хо'чет", "мо'жет", 'идёт', "е'дет", 'ест'],
+      ["чита'ем", "говори'м", "занима'емся", "хоти'м", "мо'жем", 'идём', "е'дем", "еди'м"],
+      ["чита'ете", "говори'те", "занима'етесь", "хоти'те", "мо'жете", 'идёте', "е'дете", "еди'те"],
+      ["чита'ют", "говоря'т", "занима'ются", "хотя'т", "мо'гут", "иду'т", "е'дут", "едя'т"],
+    ],
+  },
+  {
+    id: 'past', title: 'El pasado y el futuro',
+    note: "El pasado concuerda con el género, no con la persona: я был (él), я была' (ella). El futuro de los imperfectivos se hace con бу'ду + infinitivo; el de los perfectivos se conjuga como un presente: я прочита'ю.",
+    side: ['él', 'ella', 'ello', 'ellos'],
+    head: ['', 'быть', "чита'ть", 'мочь', "идти'", "есть"],
+    cols: true,
+    rows: [
+      ['был', "чита'л", 'мог', 'шёл', 'ел'],
+      ["была'", "чита'ла", "могла'", 'шла', "е'ла"],
+      ["бы'ло", "чита'ло", "могло'", 'шло', "е'ло"],
+      ["бы'ли", "чита'ли", "могли'", 'шли', "е'ли"],
+    ],
+    extra: {
+      title: "Futuro con бу'ду",
+      side: ['я', 'ты', "он, она'", 'мы', 'вы', "они'"],
+      cells: ["бу'ду чита'ть", "бу'дешь чита'ть", "бу'дет чита'ть", "бу'дем чита'ть", "бу'дете чита'ть", "бу'дут чита'ть"],
+    },
+  },
+  {
+    id: 'mov', title: 'Verbos de movimiento',
+    note: "El primero de cada par es un viaje en una dirección, ahora o en ese momento (я иду' домо'й). El segundo, ir y volver o moverse sin rumbo, y la costumbre (я хожу' в спортза'л).",
+    head: ['', 'una dirección', 'ida y vuelta, costumbre'],
+    side: ['ir a pie', 'ir en transporte', 'volar', 'nadar, navegar', 'correr', 'llevar en la mano', 'llevar en vehículo', 'llevar a alguien'],
+    cols: true,
+    rows: [
+      ["идти'", "ходи'ть"], ["е'хать", "е'здить"], ["лете'ть", "лета'ть"], ['плыть', "пла'вать"],
+      ["бежа'ть", "бе'гать"], ["нести'", "носи'ть"], ["везти'", "вози'ть"], ["вести'", "води'ть"],
+    ],
+  },
+  {
+    id: 'prep', title: 'Preposiciones y casos',
+    note: "В y на van con acusativo cuando hay movimiento hacia un lugar (я иду' в шко'лу) y con prepositivo cuando se está ahí (я в шко'ле).",
+    head: ['', 'preposiciones', 'ejemplo'],
+    side: ['Genitivo', 'Dativo', 'Acusativo', 'Instrumental', 'Prepositivo'],
+    cols: true,
+    rows: [
+      ["у, из, от, до, без, для, по'сле, о'коло, кро'ме", "без молока'"],
+      ['к, по', "к дру'гу"],
+      ["в, на, про, че'рез, за", "в шко'лу"],
+      ["с, над, под, пе'ред, ме'жду, за", "с дру'гом"],
+      ['в, на, о, при', "в шко'ле"],
+    ],
+  },
+];

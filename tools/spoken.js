@@ -4,7 +4,11 @@ const root = path.join(__dirname, '..');
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root, 'data.js'), 'utf8') + ';this.LESSONS=LESSONS;this.SPEAKERS=SPEAKERS;this.ALPHABET=ALPHABET;', ctx);
 for (const f of fs.readdirSync(path.join(root, 'lecciones')).sort()) vm.runInContext(fs.readFileSync(path.join(root, 'lecciones', f), 'utf8'), ctx);
-const { LESSONS, ALPHABET } = ctx;
+vm.runInContext(fs.readFileSync(path.join(root, 'gramatica.js'), 'utf8') + ';this.TABLES=TABLES;', ctx);
+ctx.window = ctx;
+if (fs.existsSync(path.join(root, 'vocab', 'palabras.js'))) vm.runInContext(fs.readFileSync(path.join(root, 'vocab', 'palabras.js'), 'utf8'), ctx);
+const { LESSONS, ALPHABET, TABLES } = ctx;
+const VOCAB = ctx.VOCAB || [];
 const isCyr = s => /[а-яё]/i.test(s);
 const items = []; // {text, voice}
 const gender = (s, g) => s.replace(/\{([^{}|]*)\|([^{}|]*)\}/g, (m, a, b) => g === 'f' ? b : a);
@@ -31,6 +35,10 @@ for (const L of LESSONS) {
   }
 }
 for (const a of ALPHABET) add(a[2], 'masha');
+// tablas de gramática: cada celda se puede tocar
+for (const T of TABLES) { for (const r of T.rows) for (const c of r) add(c, 'masha'); if (T.extra) for (const c of T.extra.cells) add(c, 'masha'); }
+// palabras: la palabra y su frase de ejemplo
+for (const w of VOCAB) { add(w[0], 'masha'); add(w[4], 'masha'); }
 const seen = new Set(), out = [];
 for (const it of items) { const k = it.voice + '|' + it.text; if (!seen.has(k)) { seen.add(k); out.push(it); } }
 fs.writeFileSync(process.argv[2] || '/dev/stdout', JSON.stringify(out));

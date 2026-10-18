@@ -1,9 +1,9 @@
 /* Aprende ruso — service worker: guarda la app en el teléfono para usarla sin conexión. */
 const PREFIX = 'ruso-advance-';
-const CACHE = PREFIX + 'v8';
+const CACHE = PREFIX + 'v9';
 const AUDIO = PREFIX + 'audio';
 const SHELL = ['./', 'index.html', 'styles.css', 'masha.js', 'data.js', 'app.js', 'manifest.webmanifest', 'avatar/pixel.js',
-  'lecciones/n00.js', 'lecciones/n03.js', 'lecciones/n04.js', 'lecciones/n05.js', 'lecciones/n06.js', 'lecciones/n07.js', 'lecciones/n08.js', 'lecciones/n09.js', 'lecciones/n10.js',
+  'gramatica.js', 'vocab/palabras.js', 'lecciones/n00.js', 'lecciones/n03.js', 'lecciones/n04.js', 'lecciones/n05.js', 'lecciones/n06.js', 'lecciones/n07.js', 'lecciones/n08.js', 'lecciones/n09.js', 'lecciones/n10.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
   'fonts/PTSans-400n-cyrillic.woff2', 'fonts/PTSans-400n-latin.woff2', 'fonts/PTSans-700n-cyrillic.woff2', 'fonts/PTSans-700n-latin.woff2',
   'fonts/PTSans-400i-cyrillic.woff2', 'fonts/PTSans-400i-latin.woff2', 'fonts/Unbounded-700n-cyrillic.woff2', 'fonts/Unbounded-700n-latin.woff2'];

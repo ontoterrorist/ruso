@@ -7,7 +7,15 @@ Una app para aprender ruso en el navegador **conversando con Masha**: una profes
 ![Una conversación con Masha](captura-dialogo.png)
 ![Las lecciones por niveles](captura-lecciones.png)
 
-## Cómo se aprende
+## Tres modalidades
+
+- **Diálogos**: el curso de conversación con Masha, en 121 lecciones (abajo).
+- **Palabras y frases**: las **6000 palabras más usadas del ruso**, ordenadas por frecuencia (a partir de [wordfreq](https://github.com/rspeer/wordfreq), lematizadas con pymorphy3), en 12 bloques de 500 y paquetes de 50. Cada palabra trae su traducción, su clase (con el género o el aspecto), una nota cuando hace falta (la pareja de aspecto, el caso que rige una preposición) y una frase de ejemplo; todo con audio. Se aprenden de diez en diez (se puede cambiar en Ajustes): Masha te presenta cada palabra con su ejemplo, y luego las practicas. Si ya sabes una, la marcas y te la pregunta dentro de un mes, por si acaso. En el repaso, una palabra se pregunta de varias formas según lo bien que la sepas: qué significa, cómo se dice, escucharla, completar su frase de ejemplo y escribirla.
+- **Gramática**: las 121 explicaciones del curso, agrupadas en 11 temas (casos, verbos, aspecto, verbos de movimiento, números…), cada una con sus ejercicios, que se pueden estudiar en cualquier orden. Además: una práctica mixta, **tablas** de consulta (sustantivos, adjetivos, pronombres, мой y этот, presente, pasado y futuro, verbos de movimiento, preposiciones; cada forma se puede tocar para oírla) y el alfabeto.
+
+El **repaso** junta las tres modalidades, o se puede repasar solo una de ellas.
+
+## Cómo se aprende en los diálogos
 
 Cada lección tiene cinco pasos:
 
@@ -19,7 +27,7 @@ Cada lección tiene cinco pasos:
 
 Todo lo que practicas entra al **repaso con repetición espaciada** (una variante de SM-2, el algoritmo de Anki): si aciertas, la tarjeta vuelve más tarde (1 día, 3, 8, 20…); si fallas, vuelve pronto. La gramática también son tarjetas: cada vez sale con un ejemplo distinto, para entender la regla y no memorizar una frase. Los ejercicios se vuelven más difíciles a medida que la tarjeta madura: primero reconocer, después producir, luego escuchar, ordenar palabras y escribir en cirílico.
 
-## Una clase cero y 120 lecciones en 10 niveles
+### Una clase cero y 120 lecciones en 10 niveles
 
 Antes del nivel 1 está la **clase 0 · Алфави́т**: Masha dice palabras sin mostrarlas escritas y tú eliges cuál es entre otras que se parecen (кот / ток / так). Así recorres las letras «amigas» (А, К, М, О, Т), las «traicioneras» (В, Н, Р, С, У, Х, Е) y las nuevas (Ж, Ш, Ч, Ц, Ы, Я…). La gramática explica los signos Ь y Ъ, el acento, la О sin acento que suena casi A (молоко́ suena «malakó») y las consonantes finales que se ensordecen (хлеб suena «jliep»). Es la única lección sin transliteración en el diálogo: hay que leer cirílico. Al terminarla, las 33 letras entran al repaso. Si ya empezaste el nivel 1, no se te propone, pero sigue disponible en Lecciones.
 
@@ -40,7 +48,7 @@ En total: 120 lecciones, 969 frases clave, 296 tarjetas de conversación y 120 n
 
 ## Motor de voz
 
-Cada frase rusa del curso (unas 4.900) tiene su propio audio, generado con voces neuronales rusas [Piper](https://github.com/rhasspy/piper) (Irina, Denis y Dmitri, con tonos distintos para cada personaje). La pronunciación pasa por un diccionario de acentos construido a partir de las marcas del curso, así que la voz pone el acento donde va (до́рого, его́, сего́дня) y distingue homógrafos como до́ма / дома́. Una muestra se comprobó con un reconocedor de voz ruso (sherpa-onnx): entiende alrededor del 95 % de lo que dice.
+Cada frase rusa del curso tiene su propio audio (unos 17.000: diálogos, frases, gramática, tablas, y cada palabra con su ejemplo), generado con voces neuronales rusas [Piper](https://github.com/rhasspy/piper) (Irina, Denis y Dmitri, con tonos distintos para cada personaje). La pronunciación pasa por un diccionario de acentos construido a partir de las marcas del curso, así que la voz pone el acento donde va (до́рого, его́, сего́дня) y distingue homógrafos como до́ма / дома́. Una muestra se comprobó con un reconocedor de voz ruso (sherpa-onnx): entiende alrededor del 95 % de lo que dice.
 
 Los audios están en `audio/` (el nombre es un hash de «voz|texto») y se guardan en el teléfono al oírlos. Si falta alguno, la app usa la voz del navegador. En Ajustes se puede elegir el motor y la velocidad.
 
@@ -76,6 +84,8 @@ No hace falta compilar nada: es una página estática.
 - `index.html`, `styles.css`
 - `app.js`: lecciones, repaso espaciado, ejercicios, motor de voz y ajustes
 - `data.js` y `lecciones/`: el contenido del curso (diálogos, frases, gramática y frases de Masha)
+- `vocab/palabras.js`: las 6000 palabras, con traducción, nota y ejemplo (se carga solo al usarlas)
+- `gramatica.js`: los temas de gramática y las tablas
 - `masha.js` y `avatar/`: Masha en SVG, o en pixel art si se genera con PixelLab
 - `audio/`: los audios de todas las frases
 - `tools/`: validador del contenido, lista de textos para la voz y script de PixelLab

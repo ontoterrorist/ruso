@@ -5,7 +5,7 @@
   /* ───────── estado guardado ───────── */
   const KEY = 'ruso-advance-v1';
   const DAY = 864e5;
-  const DEFAULT_SET = { translit: true, trans: 'auto', autoplay: true, rate: 1, engine: 'neural', typing: true, sfx: true, voice: '', limit: 60, unlockAll: false };
+  const DEFAULT_SET = { translit: true, trans: 'auto', autoplay: true, rate: 1, engine: 'neural', typing: true, sfx: true, voice: '', limit: 60, unlockAll: false, newWords: 10 };
   function fresh() {
     return { v: 1, name: '', g: '', started: Date.now(), done: {}, cards: {}, xp: 0, days: [], set: { ...DEFAULT_SET }, seenIntro: false };
   }
@@ -273,6 +273,36 @@
   });
   ALPHABET.forEach((a, i) => { CARDS['a:' + i] = { t: 'a', a, i }; });
   const lessonCards = L => Object.keys(CARDS).filter(id => CARDS[id].L === L);
+  const GRAMMAR = {};
+  LESSONS.forEach(L => { GRAMMAR[L.grammar.id] = L; });
+
+  /* tres modalidades: diálogos (frases y conversación), palabras y gramática (con el alfabeto) */
+  const MODE_OF = id => id[0] === 'v' ? 'words' : id[0] === 'g' || id[0] === 'a' ? 'grammar' : 'conv';
+  const MODES = { conv: 'Diálogos', words: 'Palabras', grammar: 'Gramática' };
+
+  /* ───────── palabras: 6000, en un archivo aparte que se carga al usarlas ───────── */
+  let VOCAB = null, vocabLoading = null;
+  function ensureVocab() {
+    if (VOCAB) return Promise.resolve();
+    if (vocabLoading) return vocabLoading;
+    vocabLoading = new Promise((ok, ko) => {
+      const s = document.createElement('script');
+      s.src = 'vocab/palabras.js';
+      s.onload = () => {
+        VOCAB = window.VOCAB.map((r, i) => ({ t: 'v', i, ru: r[0], es: r[1], pos: r[2], note: r[3], ex: r[4], exes: r[5], k: r[6] }));
+        VOCAB.forEach(w => { CARDS['v:' + w.ru] = w; });
+        updateBadge(); ok();
+      };
+      s.onerror = () => { vocabLoading = null; ko(); };
+      document.head.appendChild(s);
+    });
+    return vocabLoading;
+  }
+  const wordsKnown = () => Object.keys(S.cards).filter(id => id[0] === 'v').length;
+  const POS = { 'sust m': 'sustantivo masculino', 'sust f': 'sustantivo femenino', 'sust n': 'sustantivo neutro', 'sust pl': 'sustantivo plural',
+    'verbo impf': 'verbo imperfectivo', 'verbo pf': 'verbo perfectivo', 'verbo impf/pf': 'verbo imperfectivo y perfectivo', adj: 'adjetivo', adv: 'adverbio',
+    pron: 'pronombre', prep: 'preposición', conj: 'conjunción', part: 'partícula', num: 'numeral', interj: 'interjección', pred: 'predicativo' };
+  const posName = p => POS[p] || p;
 
   /* ───────── repetición espaciada (variante simple de SM-2) ───────── */
   const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -301,7 +331,7 @@
   function grade(id, q) {
     S.cards[id] = nextState(S.cards[id] || newCard(), q);
   }
-  const dueIds = () => Object.keys(S.cards).filter(id => CARDS[id] && S.cards[id].due <= Date.now()).sort((a, b) => S.cards[a].due - S.cards[b].due);
+  const dueIds = mode => Object.keys(S.cards).filter(id => CARDS[id] && S.cards[id].due <= Date.now() && (!mode || MODE_OF(id) === mode)).sort((a, b) => S.cards[a].due - S.cards[b].due);
   function updateBadge() {
     const n = dueIds().length, b = $('#badge');
     if (!b) return;
@@ -338,11 +368,13 @@
     if (!S.name || !S.g) return renderOnboard();
     const h = location.hash.slice(1) || 'home';
     const [r, arg] = h.split('/');
-    $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.r === r || (r === 'lesson' && a.dataset.r === 'path')));
+    const navR = r === 'lesson' ? 'path' : r === 'notes' ? 'grammar' : r;
+    $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.r === navR));
     if (r === 'lesson' && LESSON_IDX[arg] != null) renderLesson(LESSONS[LESSON_IDX[arg]]);
     else if (r === 'path') renderPath();
-    else if (r === 'review') renderReview();
-    else if (r === 'notes') renderNotes(arg);
+    else if (r === 'review') renderReview(MODES[arg] ? arg : '');
+    else if (r === 'words') renderWords(arg);
+    else if (r === 'grammar' || r === 'notes') renderGrammar(arg);
     else if (r === 'settings') renderSettings();
     else renderHome();
     main.focus({ preventScroll: true });
@@ -415,10 +447,12 @@
     return pick(LINES[h < 5 ? 'night' : h < 12 ? 'morning' : h < 19 ? 'day' : h < 23 ? 'evening' : 'night']);
   }
   function renderHome() {
-    const due = dueIds().length, nl = nextLesson(), inDeck = Object.keys(S.cards).length;
+    const ids = dueIds(), due = ids.length, nl = nextLesson(), inDeck = Object.keys(S.cards).length;
+    const dueOf = m => ids.filter(id => MODE_OF(id) === m).length;
     const mature = Object.values(S.cards).filter(c => c.ivl >= 21).length;
-    const st = streak();
-    if (!S.seenIntro) { say('Así funciona: primero una lección nueva (una conversación conmigo). Mañana te pregunto lo que aprendiste. Y pasado. Y dentro de una semana. Lo que sabes bien, te lo pregunto menos. Simple. Como yo.', 'smirk'); S.seenIntro = true; save(); }
+    const st = streak(), nw = wordsKnown();
+    const gSeen = Object.keys(S.cards).filter(id => id[0] === 'g').length;
+    if (!S.seenIntro) { say('Hay tres caminos. Diálogos: conversas conmigo. Palabras: las seis mil más usadas, de diez en diez. Gramática: las reglas, con tablas. Lo que aprendes vuelve al repaso justo antes de que lo olvides. Simple. Como yo.', 'smirk'); S.seenIntro = true; save(); }
     else if (due >= 25) say(line('manyDue', { n: due }), 'annoyed');
     else if (!due && inDeck) say(line('noDue'), 'pleased');
     else if (S.days.length && !S.days.includes(new Date().toLocaleDateString('sv')) && Math.random() < 0.5) say(pick(LINES.back), 'smirk');
@@ -433,21 +467,38 @@
     }
     const max = Math.max(1, ...fc);
     const days = ['hoy', 'mañ.', ...[2, 3, 4, 5, 6].map(i => { const d = new Date(Date.now() + i * DAY); return ['do', 'lu', 'ma', 'mi', 'ju', 'vi', 'sá'][d.getDay()]; })];
+    const dueChip = m => dueOf(m) ? '<span class="due-chip">' + dueOf(m) + ' por repasar</span>' : '';
 
     main.innerHTML = `
       <div class="kicker">Привет, ${esc(S.name)}</div>
-      <div class="hero">
-        <div class="card">
-          <div class="kicker">Repaso de hoy</div>
+      <div class="card review-card">
+        <div class="grow"><div class="kicker">Repaso de hoy</div>
           <div class="big-num">${due}</div>
-          <p class="muted">${due ? 'tarjetas esperan su turno' : inDeck ? 'nada pendiente por ahora' : 'aún no tienes tarjetas: empieza una lección'}</p>
-          <button class="btn ${due ? 'primary' : ''} wide" id="goRev" ${due ? 'data-enter' : 'disabled'}>Repasar</button>
-        </div>
-        <div class="card">
-          <div class="kicker">${nl ? 'Lección ' + lessonNum(nl) + ' · Nivel ' + nl.level : 'Curso terminado'}</div>
-          ${nl ? `<h2 class="ru">${show(nl.ru)}</h2><p class="muted">${esc(nl.es)}</p>
+          <p class="muted">${due ? Object.keys(MODES).filter(dueOf).map(m => MODES[m] + ' ' + dueOf(m)).join(' · ') : inDeck ? 'nada pendiente por ahora' : 'aún no tienes tarjetas: elige por dónde empezar'}</p></div>
+        <button class="btn ${due ? 'primary' : ''}" id="goRev" ${due ? 'data-enter' : 'disabled'}>Repasar todo</button>
+      </div>
+      <div class="modes">
+        <div class="card mode">
+          <div class="kicker">Diálogos ${dueChip('conv')}</div>
+          <h2>Conversaciones con Masha</h2>
+          <p class="muted small">${LESSONS.length} lecciones: una charla, frases clave y una idea de gramática.</p>
+          ${nl ? `<p><span class="muted small">Lección ${lessonNum(nl)}</span><br><b class="ru">${show(nl.ru)}</b> · ${esc(nl.es)}</p>
           <button class="btn ${due ? '' : 'primary'} wide" id="goLes" ${due ? '' : 'data-enter'}>Empezar lección</button>`
-          : '<p>Terminaste las 24 lecciones. Ahora el repaso es tu vida. Y puedes repetir cualquier conversación.</p><button class="btn wide" id="goPath">Ver lecciones</button>'}
+          : '<p>Terminaste todas las lecciones. Puedes repetir cualquier conversación.</p><button class="btn wide" id="goPath">Ver lecciones</button>'}
+        </div>
+        <div class="card mode">
+          <div class="kicker">Palabras y frases ${dueChip('words')}</div>
+          <h2>Las 6000 palabras más usadas</h2>
+          <p class="muted small">De la más frecuente a la menos, cada una con su frase de ejemplo.</p>
+          <p><b>${nw}</b> <span class="muted">de 6000</span></p><div class="pbar"><i style="width:${Math.min(100, nw / 60)}%"></i></div>
+          <button class="btn wide" id="goWords">Aprender ${S.set.newWords} palabras</button>
+        </div>
+        <div class="card mode">
+          <div class="kicker">Gramática ${dueChip('grammar')}</div>
+          <h2>Las reglas, una a una</h2>
+          <p class="muted small">${GTOPICS.length} temas, ${LESSONS.length} explicaciones con ejercicios y tablas para consultar.</p>
+          <p><b>${gSeen}</b> <span class="muted">de ${LESSONS.length} en tu repaso</span></p><div class="pbar"><i style="width:${Math.round(gSeen / LESSONS.length * 100)}%"></i></div>
+          <button class="btn wide" id="goGram">Ver los temas</button>
         </div>
       </div>
       <div class="stat-row">
@@ -457,10 +508,12 @@
         <div class="stat"><b>${mature}</b><span>dominadas (21+ días)</span></div>
       </div>
       ${inDeck ? `<div class="card dark"><h3>Próximos 7 días</h3><div class="forecast">${fc.map((n, i) => `<div><span>${n || ''}</span><i style="height:${Math.round(n / max * 44)}px"></i>${days[i]}</div>`).join('')}</div></div>` : ''}
-      <div class="card dark small"><b>Cómo funciona.</b> Cada lección empieza con una conversación; luego ves las frases clave y una noción de gramática, y practicas. Todo lo que practicas entra al <b>repaso</b>: si aciertas, la tarjeta vuelve más tarde (1 día, 3, 8, 20…); si fallas, vuelve pronto. Unos minutos al día bastan.</div>`;
-    const r = $('#goRev'); if (r) r.onclick = () => go('#review');
+      <div class="card dark small"><b>Cómo funciona.</b> Elige cada día lo que quieras: una conversación, una tanda de palabras o un tema de gramática. Todo lo que practicas entra al <b>repaso</b>: si aciertas, la tarjeta vuelve más tarde (1 día, 3, 8, 20…); si fallas, vuelve pronto. Unos minutos al día bastan.</div>`;
+    $('#goRev').onclick = () => go('#review');
     const l = $('#goLes'); if (l) l.onclick = () => go('#lesson/' + nl.id);
     const p = $('#goPath'); if (p) p.onclick = () => go('#path');
+    $('#goWords').onclick = () => go('#words/learn');
+    $('#goGram').onclick = () => go('#grammar');
   }
 
   /* ───────── lista de lecciones ───────── */
@@ -683,14 +736,16 @@
   }
 
   /* ───────── repaso ───────── */
-  function renderReview() {
-    const ids = dueIds();
+  function renderReview(mode) {
+    const ids = dueIds(mode);
     if (!ids.length) {
-      const nl = nextLesson();
-      say(Object.keys(S.cards).length ? line('noDue') : 'No hay nada que repasar porque no has aprendido nada. Todavía. Empieza una lección.', 'pleased');
-      main.innerHTML = `<div class="card center"><div class="kicker">Repaso</div><h1>Todo al día</h1>
+      const nl = nextLesson(), others = Object.keys(MODES).filter(m => dueIds(m).length);
+      say(Object.keys(S.cards).length ? line('noDue') : 'No hay nada que repasar porque no has aprendido nada. Todavía. Elige una lección, unas palabras o un tema.', 'pleased');
+      main.innerHTML = `<div class="card center"><div class="kicker">Repaso${mode ? ' · ' + MODES[mode] : ''}</div><h1>Todo al día</h1>
         <p class="muted">Vuelve cuando haya tarjetas pendientes; el número aparece en el menú.</p>
-        <div class="row" style="justify-content:center">${nl ? '<button class="btn primary" data-enter id="les">Lección: ' + show(nl.ru) + '</button>' : ''}<button class="btn" id="home">Inicio</button></div></div>`;
+        <div class="row" style="justify-content:center">${others.map(m => '<button class="btn primary" data-m="' + m + '">Repasar ' + MODES[m].toLowerCase() + ' (' + dueIds(m).length + ')</button>').join('')}
+        ${!others.length && nl ? '<button class="btn primary" data-enter id="les">Lección: ' + show(nl.ru) + '</button>' : ''}<button class="btn" id="home">Inicio</button></div></div>`;
+      $$('[data-m]').forEach(b => b.onclick = () => go('#review/' + b.dataset.m));
       const l = $('#les'); if (l) l.onclick = () => go('#lesson/' + nl.id);
       $('#home').onclick = () => go('#home');
       return;
@@ -698,48 +753,73 @@
     /* se mezclan los tipos para que no salgan todas las de una lección juntas */
     const q = shuffle(ids.slice(0, S.set.limit));
     say(q.length > 30 ? 'Muchas tarjetas. Vamos poco a poco. Una cada vez.' : 'Repaso. La parte aburrida que funciona. Vamos.', 'neutral');
-    runSession({ queue: q, mode: 'review', head: '', done: res => reviewEnd(res) });
+    runSession({ queue: q, mode: 'review', label: 'Repaso' + (mode ? ' · ' + MODES[mode] : ''), head: '', back: '#home', done: res => reviewEnd(res, mode) });
   }
-  function reviewEnd(res) {
+  function reviewEnd(res, mode) {
     markDay(); save(); sfx('done');
     say(line('sessionEnd'), 'happy');
-    const left = dueIds().length;
+    const left = dueIds(mode).length;
     main.innerHTML = `<div class="card center"><div class="kicker">Repaso terminado</div>
       <p class="big-num">${res.ok}/${res.total}</p><p>a la primera · +${res.xp} XP</p>
       ${left ? '<p class="muted">Quedan ' + left + ' tarjetas (por el límite de cada sesión).</p>' : ''}
       <div class="row" style="justify-content:center;margin-top:10px"><button class="btn" id="home">Inicio</button>
       ${left ? '<button class="btn primary" data-enter id="more">Seguir repasando</button>' : (nextLesson() ? '<button class="btn primary" data-enter id="les">Siguiente lección</button>' : '')}</div></div>`;
     $('#home').onclick = () => go('#home');
-    const m = $('#more'); if (m) m.onclick = () => renderReview();
+    const m = $('#more'); if (m) m.onclick = () => renderReview(mode);
     const l = $('#les'); if (l) l.onclick = () => go('#lesson/' + nextLesson().id);
   }
 
   /* ───────── motor de ejercicios ───────── */
   function distractors(C, n, field) {
-    const li = LESSON_IDX[C.L.id];
-    /* primero frases de esta lección y de las cercanas ya vistas; solo si faltan, de más adelante */
-    const all = Object.values(CARDS).filter(x => x.t === 'p' && x !== C);
-    const near = all.filter(x => LESSON_IDX[x.L.id] <= li && li - LESSON_IDX[x.L.id] <= 5);
-    const pool = shuffle(near).concat(shuffle(all.filter(x => !near.includes(x))));
-    const seen = new Set([norm(C[field])]), out = [];
+    let pool;
+    if (C.t === 'v') {
+      /* palabras de la misma clase y de frecuencia parecida */
+      const near = VOCAB.slice(Math.max(0, C.i - 400), C.i + 400).filter(w => w !== C);
+      pool = shuffle(near.filter(w => w.pos === C.pos)).concat(shuffle(near));
+    } else {
+      const li = LESSON_IDX[C.L.id];
+      /* primero frases de esta lección y de las cercanas ya vistas; solo si faltan, de más adelante */
+      const all = Object.values(CARDS).filter(x => x.t === 'p' && x !== C);
+      const near = all.filter(x => LESSON_IDX[x.L.id] <= li && li - LESSON_IDX[x.L.id] <= 5);
+      pool = shuffle(near).concat(shuffle(all.filter(x => !near.includes(x))));
+    }
+    /* que ninguna opción comparta un significado con la correcta («grande» y «grande, mayor») */
+    const senses = x => String(resolve(x[field])).split(/[,;]/).map(norm).filter(Boolean);
+    const seen = new Set(senses(C)), out = [];
     for (const x of pool) {
-      const k = norm(x[field]);
-      if (!seen.has(k)) { seen.add(k); out.push(x); }
+      const k = senses(x);
+      if (k.length && !k.some(v => seen.has(v))) { k.forEach(v => seen.add(v)); out.push(x); }
       if (out.length >= n) break;
     }
     return out;
+  }
+  /* la palabra dentro de su frase de ejemplo, para completar el hueco */
+  function clozeOf(w) {
+    if (w.k == null || w.k < 0) return null;
+    const toks = w.ex.split(' '), m = (toks[w.k] || '').match(/^([«"]*)(.+?)([.,!?;:»"…]*)$/);
+    if (!m) return null;
+    return { before: toks.slice(0, w.k).join(' '), pre: m[1], form: m[2], post: m[3], after: toks.slice(w.k + 1).join(' ') };
   }
   const tokens = s => resolve(s).replace(/[.,!?¿¡«»…—]/g, ' ').split(/\s+/).filter(Boolean);
   const awkward = s => /[…\/]/.test(s);
 
   /* elige el tipo de ejercicio según lo madura que esté la tarjeta */
-  function buildEx(id, mode) {
-    const C = CARDS[id], st = S.cards[id] || newCard(), ivl = mode === 'lesson' ? 0 : st.ivl;
+  function buildEx(id, mode, o) {
+    const C = CARDS[id], st = S.cards[id] || newCard(), ivl = mode !== 'review' ? 0 : st.ivl;
+    if (C.t === 'v') {
+      const canType = S.set.typing && !/\s/.test(C.ru), canCloze = !!clozeOf(C);
+      let kinds;
+      if (mode !== 'review') kinds = ['ru2es', 'es2ru', 'listen'];
+      else if (ivl < 2) kinds = ['ru2es', 'es2ru'];
+      else if (ivl < 7) kinds = ['es2ru', 'listen', canCloze ? 'cloze' : 'ru2es'];
+      else kinds = [canType ? 'type' : 'es2ru', canCloze ? 'cloze' : 'listen', 'listen', 'es2ru'];
+      return { id, C, kind: pick(kinds) };
+    }
     if (C.t === 'p') {
       const n = tokens(C.ru).length;
       const canTiles = n >= 3 && !awkward(C.ru), canType = S.set.typing && n <= 4 && !awkward(C.ru);
       let kinds;
-      if (mode === 'lesson') kinds = ['ru2es', 'ru2es', 'es2ru'];
+      if (mode !== 'review') kinds = ['ru2es', 'ru2es', 'es2ru'];
       else if (ivl < 2) kinds = ['ru2es', 'es2ru'];
       else if (ivl < 7) kinds = ['es2ru', canTiles ? 'tiles' : 'listen', 'listen'];
       else kinds = [canType ? 'type' : 'es2ru', canTiles ? 'tiles' : 'listen', 'listen'];
@@ -750,6 +830,7 @@
       const d = C.G.drills;
       let j = Math.floor(Math.random() * d.length);
       if (d.length > 1 && j === st.last) j = (j + 1) % d.length;
+      if (o && o.pickJ) j = o.pickJ(id, d.length);
       return { id, C, kind: 'drill', j };
     }
     return { id, C, kind: ivl >= 3 ? 'abc-rev' : 'abc' };
@@ -757,23 +838,27 @@
 
   function runSession(o) {
     const queue = o.queue.slice(), firstTry = {}, lastQ = {};
-    let done = 0, total = new Set(queue).size, ok = 0, xp = 0, run = 0;
+    /* en lecciones, palabras nuevas y temas de gramática se enseña; en el repaso se califica */
+    const teach = o.mode !== 'review';
+    /* en un tema de gramática, cada ejercicio cuenta por separado aunque sean de la misma tarjeta */
+    const each = o.mode === 'grammar', keyOf = ex => each ? ex.id + '#' + ex.j : ex.id;
+    let done = 0, total = each ? queue.length : new Set(queue).size, ok = 0, xp = 0, run = 0;
     function next() {
       if (!queue.length) return o.done({ ok, total, xp });
       const id = queue.shift();
-      const ex = buildEx(id, o.mode);
+      const ex = buildEx(id, o.mode, o);
       render(ex);
     }
     function top() {
       const pct = Math.round(done / (done + queue.length + 1) * 100);
-      return o.head + `<div class="session-top"><span>${o.mode === 'lesson' ? 'Práctica' : 'Repaso'}</span><span class="grow"></span><span>${queue.length + 1} por delante</span>
+      return o.head + `<div class="session-top"><span>${o.label || (o.mode === 'lesson' ? 'Práctica' : 'Repaso')}</span><span class="grow"></span><span>${queue.length + 1} por delante</span>
         <button class="chip" id="quit">Salir</button></div><div class="progress"><i style="width:${pct}%"></i></div>`;
     }
     function render(ex) {
       const C = ex.C;
       readingMode = !!(C.L && C.L.reading);
       let body = '', options = null, answerRu = '', autoAudio = '', check = null;
-      const isNew = o.mode === 'lesson' && !S.cards[ex.id];
+      const isNew = teach && !S.cards[ex.id];
       if (ex.kind === 'ru2es' || ex.kind === 'listen') {
         const ds = distractors(C, 3, 'es');
         options = shuffle([{ h: esc(resolve(C.es)), ok: true }, ...ds.map(d => ({ h: esc(resolve(d.es)) }))]);
@@ -785,7 +870,18 @@
         const ds = distractors(C, 3, 'ru');
         options = shuffle([{ h: ruHTML(C.ru), ok: true }, ...ds.map(d => ({ h: ruHTML(d.ru) }))]);
         answerRu = C.ru;
-        body = `<div class="ex-type">¿Cómo se dice en ruso?</div><div class="prompt es-p">${esc(resolve(C.es))}</div>`;
+        body = `<div class="ex-type">¿Cómo se dice en ruso?</div><div class="prompt es-p">${esc(resolve(C.es))}</div>` +
+          (C.t === 'v' ? `<div class="prompt-sub">${esc(posName(C.pos))}</div>` : '');
+      } else if (ex.kind === 'cloze') {
+        const z = clozeOf(C);
+        const others = distractors(C, 8, 'es').map(clozeOf).filter(x => x && norm(x.form) !== norm(z.form)).slice(0, 3);
+        /* las otras opciones con la misma mayúscula inicial que la correcta, para no delatarla */
+        const cap = f => z.form[0] === z.form[0].toUpperCase() ? f[0].toUpperCase() + f.slice(1) : f[0].toLowerCase() + f.slice(1);
+        options = shuffle([{ h: ruHTML(z.form), ok: true }, ...others.map(x => ({ h: ruHTML(cap(x.form)) }))]);
+        answerRu = C.ex;
+        body = `<div class="ex-type">Completa la frase</div>
+          <div class="prompt">${show(z.before)} ${show(z.pre)}<span class="blank"></span>${show(z.post)} ${show(z.after)}</div>
+          <div class="prompt-sub">${esc(C.exes)}</div>`;
       } else if (ex.kind === 'tiles') {
         answerRu = C.ru;
         const right = tokens(C.ru);
@@ -835,7 +931,7 @@
       main.innerHTML = top() + '<div class="card" id="ex">' + body +
         (options ? '<div class="choices">' + options.map((op, j) => '<button class="choice" data-k="' + (j + 1) + '" data-j="' + j + '">' + op.h + '</button>').join('') + '</div>' : '') +
         '<div id="fb"></div></div>';
-      $('#quit').onclick = () => { save(); go(o.mode === 'lesson' ? '#path' : '#home'); };
+      $('#quit').onclick = () => { save(); go(o.back || (o.mode === 'lesson' ? '#path' : '#home')); };
       if (autoAudio && S.set.autoplay) speak(autoAudio, { voice: C.prompt ? (C.prompt.who || 'masha') : 'masha', pitch: C.prompt && PITCH[C.prompt.who] });
       const pes = $('#pes'); if (pes) pes.onclick = () => pes.classList.remove('hid');
       const sl = $('#showl'); if (sl) sl.onclick = () => { $('#hl').outerHTML = ruHTML(C.prompt.ru); sl.remove(); };
@@ -887,8 +983,8 @@
     }
 
     function answered(ex, right, info) {
-      const id = ex.id, first = !(id in firstTry);
-      if (first) { firstTry[id] = right; if (right) ok++; }
+      const id = ex.id, first = !(keyOf(ex) in firstTry);
+      if (first) { firstTry[keyOf(ex)] = right; if (right) ok++; }
       run = right ? run + 1 : 0;
       sfx(right ? 'ok' : 'bad');
       if (ex.kind === 'drill') { S.cards[id] = S.cards[id] || newCard(); S.cards[id].last = ex.j; }
@@ -900,15 +996,19 @@
 
       readingMode = false;
       let html = '<div class="feedback ' + (right ? 'ok' : 'bad') + '"><h3>' + (right ? (info.typo ? 'Casi perfecto' : pick(['Правильно!', 'Хорошо!', 'Верно!'])) : 'Не совсем…') + '</h3>';
-      if (info.answerRu) html += '<div class="row">' + sayBtn(info.answerRu, '', info.voice) + '<div class="grow">' + ruHTML(info.answerRu) + (ex.C.es && ex.C.t === 'p' ? '<span class="es">' + esc(resolve(ex.C.es)) + '</span>' : '') + '</div></div>';
+      const esLine = ex.C.t === 'p' ? ex.C.es : ex.C.t === 'v' ? (ex.kind === 'cloze' ? ex.C.exes : ex.C.es) : '';
+      if (info.answerRu) html += '<div class="row">' + sayBtn(info.answerRu, '', info.voice) + '<div class="grow">' + ruHTML(info.answerRu) + (esLine ? '<span class="es">' + esc(resolve(esLine)) + '</span>' : '') + '</div></div>';
+      if (ex.C.t === 'v') html += ex.kind === 'cloze'
+        ? '<p class="small" style="margin-top:6px"><b class="ru">' + show(ex.C.ru) + '</b> — ' + esc(ex.C.es) + '</p>'
+        : '<div class="row wex">' + sayBtn(ex.C.ex) + '<div class="grow"><span class="ru">' + show(ex.C.ex) + '</span><span class="es">' + esc(ex.C.exes) + '</span></div></div>';
       if (ex.kind.startsWith('conv')) html += '<p class="small muted" style="margin-top:6px">' + show(ex.C.prompt.ru) + ' — ' + esc(resolve(ex.C.prompt.es)) + '</p>';
       if (ex.explain) html += '<p class="small" style="margin-top:6px">' + show(ex.explain) + '</p>';
-      if (ex.C.note && !right) html += '<p class="small">' + esc(ex.C.note) + '</p>';
+      if (ex.C.note && !right) html += '<p class="small">' + (ex.C.t === 'v' ? show(ex.C.note) : esc(ex.C.note)) + '</p>';
 
       /* calendario */
       const graded = q => {
         /* en la lección, una tarjeta repetida (la gramática sale tres veces) solo se agenda una vez, salvo si se falla */
-        if (!frozen && (o.mode !== 'lesson' || q === 0 || !lastQ[id])) grade(id, q);
+        if (!frozen && (!teach || q === 0 || !lastQ[id])) grade(id, q);
         lastQ[id] = q;
         if (q === 0) {
           /* vuelve en esta misma sesión, unas tarjetas más adelante */
@@ -919,7 +1019,7 @@
       };
       if (!right) {
         html += '<div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn red" data-enter id="cont">Continuar</button></div>';
-      } else if (o.mode === 'lesson' || frozen) {
+      } else if (teach || frozen) {
         html += '<div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn green" data-enter id="cont">Continuar</button></div>';
       } else {
         const c = S.cards[id] || newCard();
@@ -946,29 +1046,189 @@
       '<div><button type="button" class="w" data-key=" " style="max-width:260px;flex:8">espacio</button></div></div>';
   }
 
-  /* ───────── notas: gramática y alfabeto ───────── */
-  function renderNotes(tab) {
-    tab = tab || 'grammar';
-    const tabs = `<div class="tabs"><a class="btn ${tab === 'grammar' ? 'primary' : ''}" href="#notes/grammar">Gramática</a><a class="btn ${tab === 'abc' ? 'primary' : ''}" href="#notes/abc">Alfabeto</a></div>`;
+
+  /* ───────── palabras y frases ───────── */
+  const PACK = 50, LEVEL_W = 500;
+  const wState = w => { const c = S.cards['v:' + w.ru]; return !c ? 'new' : c.ivl >= 21 ? 'known' : 'learning'; };
+  const W_ICON = { new: '', learning: '◐', known: '●' };
+  function renderWords(arg) {
+    if (!VOCAB) {
+      main.innerHTML = '<div class="card center"><p class="muted">Cargando las 6000 palabras…</p></div>';
+      ensureVocab().then(() => { if (/^#words/.test(location.hash)) renderWords(arg); })
+        .catch(() => { main.innerHTML = '<div class="card center"><p>No se pudieron cargar las palabras. ¿Hay conexión?</p><button class="btn" id="retry">Reintentar</button></div>'; $('#retry').onclick = () => renderWords(arg); });
+      return;
+    }
+    if (arg === 'learn') return learnWords(VOCAB.filter(w => wState(w) === 'new').slice(0, S.set.newWords));
+    if (/^\d+$/.test(arg || '') && +arg >= 1 && +arg <= Math.ceil(VOCAB.length / PACK)) return renderPack(+arg);
+    const nw = wordsKnown(), due = dueIds('words').length, known = VOCAB.filter(w => wState(w) === 'known').length;
+    const next = VOCAB.findIndex(w => wState(w) === 'new');
+    say(nw ? pick(['Con seis mil palabras entiendes casi todo lo que oyes. Casi. El resto lo adivinas, como los rusos.', 'Diez palabras al día y en dos años eres peligroso. En ruso.', 'Las palabras se olvidan. Por eso existe el repaso. Y yo.'])
+      : 'Seis mil palabras, de la más usada a la menos. Con las primeras mil ya entiendes muchísimo. Empezamos de diez en diez.', 'smirk');
+    const levels = Math.ceil(VOCAB.length / LEVEL_W), openLv = next < 0 ? -1 : Math.floor(next / LEVEL_W);
+    main.innerHTML = `<div class="card">
+        <div class="kicker">Palabras y frases</div><h1>Las 6000 palabras más usadas</h1>
+        <p class="muted">Ordenadas por frecuencia: primero las que más vas a oír. Cada una trae una frase de ejemplo con audio. Después de aprenderlas, el repaso te las pregunta de varias formas: qué significa, cómo se dice, escucharla, completar la frase y escribirla.</p>
+        <p><b>${nw}</b> <span class="muted">de ${VOCAB.length} en tu repaso · ${known} dominadas</span></p><div class="pbar"><i style="width:${nw / VOCAB.length * 100}%"></i></div>
+        <div class="row" style="margin-top:14px">${next >= 0 ? `<button class="btn primary" data-enter id="learn">Aprender ${S.set.newWords} nuevas</button>` : ''}
+          <button class="btn" id="rev" ${due ? '' : 'disabled'}>Repasar palabras (${due})</button></div>
+      </div>` + Array.from({ length: levels }, (_, lv) => {
+        const ws = VOCAB.slice(lv * LEVEL_W, (lv + 1) * LEVEL_W), nd = ws.filter(w => wState(w) !== 'new').length;
+        const packs = Math.ceil(ws.length / PACK);
+        return `<details class="level" ${lv === openLv ? 'open' : ''}>
+          <summary class="level-head"><h2>Palabras ${lv * LEVEL_W + 1}–${lv * LEVEL_W + ws.length}</h2><span class="muted small grow">${lv === 0 ? 'Las imprescindibles' : lv < 2 ? 'Lo básico de cada día' : lv < 4 ? 'Para conversar con soltura' : lv < 8 ? 'Para leer y entender noticias' : 'Para entender casi todo'}</span>
+            <span class="lv-prog"><i style="width:${Math.round(nd / ws.length * 100)}%"></i></span><b class="small">${nd}/${ws.length}</b></summary>
+          <div class="lessons">${Array.from({ length: packs }, (_, k) => {
+            const n = lv * (LEVEL_W / PACK) + k + 1, pw = VOCAB.slice((n - 1) * PACK, n * PACK), pd = pw.filter(w => wState(w) !== 'new').length;
+            return `<button class="lesson-tile ${pd === pw.length ? 'done' : ''}" data-p="${n}"><span class="n">PAQUETE ${n}</span><span class="st">${pd === pw.length ? '✓' : pd ? pd + '/' + pw.length : ''}</span>
+              <span class="t ru">${pw.slice(0, 3).map(w => show(w.ru)).join(', ')}…</span><span class="s">${pw.slice(0, 3).map(w => esc(w.es.split(',')[0])).join(', ')}…</span></button>`;
+          }).join('')}</div></details>`;
+      }).join('');
+    const l = $('#learn'); if (l) l.onclick = () => go('#words/learn');
+    $('#rev').onclick = () => go('#review/words');
+    $$('[data-p]').forEach(b => b.onclick = () => go('#words/' + b.dataset.p));
+  }
+
+  function renderPack(n) {
+    const ws = VOCAB.slice((n - 1) * PACK, n * PACK), news = ws.filter(w => wState(w) === 'new');
+    say(news.length ? 'Paquete ' + n + '. Toca una palabra para oírla. Si ya te las sabes, dímelo y no te aburro.' : 'Este paquete ya está en tu repaso. Bien. No te confíes.', 'neutral');
+    main.innerHTML = `<div class="row" style="margin-bottom:12px"><a class="btn ghost" href="#words">◂ Palabras</a><span class="grow"></span>
+        ${n > 1 ? `<a class="btn ghost" href="#words/${n - 1}">‹</a>` : ''}${n * PACK < VOCAB.length ? `<a class="btn ghost" href="#words/${n + 1}">›</a>` : ''}</div>
+      <div class="card"><div class="kicker">Paquete ${n} · palabras ${(n - 1) * PACK + 1}–${(n - 1) * PACK + ws.length}</div>
+        <div class="row">${news.length ? `<button class="btn primary" data-enter id="learn">Aprender ${Math.min(S.set.newWords, news.length)} nuevas</button><button class="btn ghost" id="known">Ya me las sé todas</button>` : '<span class="muted">Todas estas palabras están en tu repaso.</span>'}</div>
+        <div class="wlist">${ws.map(w => `<div class="wrow ${wState(w)}">${sayBtn(w.ru)}<div class="grow"><b class="ru">${show(w.ru)}</b> <span class="muted small">${esc(posName(w.pos))}</span><span class="es">${esc(w.es)}</span></div><span class="wst" title="${{ new: 'nueva', learning: 'aprendiendo', known: 'dominada' }[wState(w)]}">${W_ICON[wState(w)]}</span></div>`).join('')}</div>
+        <p class="muted small" style="margin-top:10px">◐ aprendiendo · ● dominada (21 días o más)</p></div>`;
+    const l = $('#learn'); if (l) l.onclick = () => learnWords(news.slice(0, S.set.newWords));
+    const k = $('#known'); if (k) k.onclick = () => {
+      if (!confirm('¿Marcar como sabidas las ' + news.length + ' palabras nuevas de este paquete? Te las preguntaré dentro de un mes, por si acaso.')) return;
+      news.forEach(markKnown); save(); toast(news.length + ' palabras marcadas como sabidas'); renderPack(n);
+    };
+  }
+  /* «ya la sé»: entra al repaso con un intervalo largo, para comprobarlo más adelante */
+  function markKnown(w) { S.cards['v:' + w.ru] = { ...newCard(), ivl: 30, reps: 1, due: dueIn(30) }; }
+
+  /* aprender: primero se presentan las palabras una a una, luego se practican */
+  function learnWords(list) {
+    if (!list.length) { say('No quedan palabras nuevas. Seis mil. Las tienes todas. Ahora a repasarlas.', 'happy'); go('#words'); return; }
+    const learn = [];
+    let i = 0;
+    const show1 = () => {
+      if (i >= list.length) return practice();
+      const w = list[i];
+      main.innerHTML = `<div class="steps">${list.map((_, j) => '<span class="' + (j < i ? 'done' : j === i ? 'on' : '') + '"></span>').join('')}</div>
+        <div class="kicker">Palabra nueva · ${i + 1} de ${list.length} · nº ${w.i + 1} en frecuencia</div>
+        <div class="card word-card">
+          <div class="row"><div class="grow">${ruHTML(w.ru, 'word-big')}</div>${sayBtn(w.ru, 'data-replay')}</div>
+          <p class="word-es">${esc(w.es)}</p>
+          <p class="muted small">${esc(posName(w.pos))}${w.note ? ' · ' + show(w.note) : ''}</p>
+          <div class="row wex">${sayBtn(w.ex)}<div class="grow">${ruHTML(w.ex)}<span class="es">${esc(w.exes)}</span></div></div>
+          <div class="row" style="margin-top:16px"><button class="btn ghost" id="know">Ya la sé</button><span class="grow"></span><button class="btn primary" data-enter id="nx">${i + 1 < list.length ? 'Siguiente ▸' : 'Practicar ▸'}</button></div>
+        </div>`;
+      if (S.set.autoplay) speak(w.ru, { done: () => setTimeout(() => { if ($('.word-card')) speak(w.ex); }, 400) });
+      $('#nx').onclick = () => { learn.push(w); i++; show1(); };
+      $('#know').onclick = () => { markKnown(w); save(); i++; show1(); };
+    };
+    const practice = () => {
+      if (!learn.length) { save(); say('¿Todas sabidas? Te creo. Por ahora. Dentro de un mes te pregunto.', 'smirk'); return go('#words'); }
+      say('Ahora te pregunto las que no sabías. Sin mirar atrás.', 'smirk');
+      const ids = learn.map(w => 'v:' + w.ru);
+      runSession({ queue: shuffle(ids), mode: 'learn', label: 'Palabras nuevas', head: '', back: '#words', done: res => {
+        markDay(); save(); sfx('done');
+        say(pick(['Diez palabras más. El ruso empieza a rendirse.', 'Bien. Mañana te las pregunto. No las olvides. Bueno, olvídalas un poco: así funciona la memoria.', 'Guardadas. Pelmén está impresionado. No lo demuestra, pero lo está.']), 'happy');
+        const more = VOCAB.some(w => wState(w) === 'new');
+        main.innerHTML = `<div class="card center"><div class="kicker">Palabras aprendidas</div>
+          <p class="big-num">+${learn.length}</p><p>${res.ok} de ${res.total} a la primera · ${wordsKnown()} de ${VOCAB.length} en tu repaso</p>
+          <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="back">Palabras</button>
+          ${more ? '<button class="btn primary" data-enter id="more">Otras ' + S.set.newWords + '</button>' : ''}</div></div>`;
+        $('#back').onclick = () => go('#words');
+        const m = $('#more'); if (m) m.onclick = () => { if (location.hash === '#words/learn') route(); else go('#words/learn'); };
+      } });
+    };
+    say(pick(['Palabras nuevas. Escucha, mira el ejemplo y sigue. Si ya la sabes, dilo: no pierdo el tiempo.', 'Vamos con unas palabras. Fíjate en el acento: cambia todo.']), 'neutral');
+    show1();
+  }
+
+  /* ───────── gramática: temas, tablas y alfabeto ───────── */
+  function renderGrammar(tab) {
+    tab = !tab || tab === 'grammar' ? 'temas' : tab;
+    if (GRAMMAR[tab]) return renderGTopic(tab);
+    const tabs = `<div class="tabs">${[['temas', 'Temas'], ['tablas', 'Tablas'], ['abc', 'Alfabeto']].map(([k, t]) => `<a class="btn ${tab === k ? 'primary' : ''}" href="#grammar/${k}">${t}</a>`).join('')}</div>`;
     if (tab === 'abc') {
       const inDeck = ALPHABET.every((_, i) => S.cards['a:' + i]);
       say('El alfabeto. Treinta y tres letras. Cinco son trampas: В, Н, Р, С, У, Х. Parecen latinas y no lo son. Bueno, seis.', 'smirk');
-      main.innerHTML = tabs + `<div class="card dark"><p>No hace falta aprender el alfabeto antes de empezar: las lecciones llevan transliteración. Pero cuanto antes leas cirílico, mejor.</p>
+      main.innerHTML = tabs + `<div class="card dark"><p>Toca una letra para oírla. Si quieres practicarlo desde cero, haz la <a href="#lesson/l0">clase 0</a>.</p>
         <button class="btn ${inDeck ? '' : 'primary'}" id="addabc" ${inDeck ? 'disabled' : ''}>${inDeck ? 'El alfabeto ya está en tu repaso' : 'Añadir las 33 letras al repaso'}</button></div>
         <div class="abc">${ALPHABET.map(a => `<button data-say="${esc(a[2])}" data-voice="masha"><span class="L">${a[0]}</span><span class="snd">${esc(a[1])}</span><span class="ex">${show(a[2])}</span></button>`).join('')}</div>`;
       const b = $('#addabc');
       if (b && !inDeck) b.onclick = () => {
         ALPHABET.forEach((_, i) => { if (!S.cards['a:' + i]) S.cards['a:' + i] = newCard(); });
-        save(); toast('33 letras añadidas al repaso'); renderNotes('abc');
+        save(); toast('33 letras añadidas al repaso'); renderGrammar('abc');
       };
       return;
     }
-    say('Todas las notas de gramática que ya viste. Las que faltan se abren con cada lección. No hagas trampa leyéndolas antes. Bueno, puedes. No te veo.', 'neutral');
-    main.innerHTML = tabs + LESSONS.map(L => {
-      const G = L.grammar, open = isDone(L) || S.set.unlockAll;
-      return `<details class="gnote ${open ? '' : 'locked'}" ${open ? '' : 'data-locked'}><summary><span class="grow">${show(G.title)}</span><span class="muted">Lección ${lessonNum(L)}${open ? '' : ' 🔒'}</span></summary>${open ? '<div class="grammar-body">' + rich(G.body) + '</div>' : ''}</details>`;
-    }).join('');
-    $$('details[data-locked]').forEach(d => d.addEventListener('toggle', () => { if (d.open) { d.open = false; say('Esa nota se abre con su lección. Todo a su tiempo.', 'annoyed'); } }));
+    if (tab === 'tablas') {
+      say('Tablas. Sí, los rusos también las odian. Pero las sabemos. Toca cualquier forma para oírla.', 'eyeroll');
+      const cell = t => `<td><button class="tcell" data-say="${esc(t)}" data-voice="masha">${show(t)}</button></td>`;
+      const lab = t => { const [a, q] = t.split(' · '); return show(a) + (q ? '<small>' + show(q) + '</small>' : ''); };
+      main.innerHTML = tabs + TABLES.map(T => {
+        const side = T.side || CASOS;
+        let html = `<details class="gnote" ${T.id === 'sust1' ? 'open' : ''}><summary><span class="grow">${show(T.title)}</span></summary><div class="grammar-body">
+          <div class="tscroll"><table class="gtable"><thead><tr>${T.head.map(h => `<th>${show(h)}</th>`).join('')}</tr></thead>
+          <tbody>${T.rows.map((r, i) => `<tr><th>${lab(side[i])}</th>${r.map(cell).join('')}</tr>`).join('')}</tbody></table></div>`;
+        if (T.extra) html += `<h4>${show(T.extra.title)}</h4><div class="tscroll"><table class="gtable"><tbody>${T.extra.cells.map((c, i) => `<tr><th>${show(T.extra.side[i])}</th>${cell(c)}</tr>`).join('')}</tbody></table></div>`;
+        return html + `<p class="small">${show(T.note)}</p></div></details>`;
+      }).join('');
+      return;
+    }
+    const studied = id => !!S.cards['g:' + id];
+    const nS = Object.keys(GRAMMAR).filter(studied).length;
+    say(nS ? 'Elige un tema, o deja que te pregunte de todo un poco. Lo que ya estudiaste vuelve solo en el repaso.' : 'Toda la gramática del curso, ordenada por tema. Puedes empezar por donde quieras. Yo empezaría por el principio. Pero no soy tu madre.', 'neutral');
+    main.innerHTML = tabs + `<div class="card"><div class="kicker">Gramática</div><h1>Las reglas, una a una</h1>
+        <p class="muted">Cada tema tiene una explicación corta y ejercicios. Al practicarlo, entra a tu repaso. Las conversaciones usan los mismos temas, en el mismo orden.</p>
+        <p><b>${nS}</b> <span class="muted">de ${LESSONS.length} temas en tu repaso</span></p><div class="pbar"><i style="width:${nS / LESSONS.length * 100}%"></i></div>
+        <div class="row" style="margin-top:14px"><button class="btn primary" id="mix" ${nS ? 'data-enter' : 'disabled'}>Práctica mixta (10 ejercicios)</button>
+        <button class="btn" id="rev" ${dueIds('grammar').length ? '' : 'disabled'}>Repasar gramática (${dueIds('grammar').length})</button></div></div>` +
+      GTOPICS.map((T, ti) => {
+        const nd = T.g.filter(studied).length;
+        return `<details class="level" ${ti === 0 && !nS ? 'open' : ''}><summary class="level-head"><h2>${esc(T.title)}</h2><span class="muted small grow">${esc(T.es)}</span>
+          <span class="lv-prog"><i style="width:${Math.round(nd / T.g.length * 100)}%"></i></span><b class="small">${nd}/${T.g.length}</b></summary>
+          <div class="glist">${T.g.map(g => `<a class="grow-row ${studied(g) ? 'done' : ''}" href="#grammar/${g}"><span class="grow">${show(GRAMMAR[g].grammar.title)}</span><span class="muted small">${studied(g) ? '✓ en repaso' : GRAMMAR[g].grammar.drills.length + ' ejercicios'}</span></a>`).join('')}</div></details>`;
+      }).join('');
+    $('#mix').onclick = () => {
+      const pool = shuffle(Object.keys(GRAMMAR).filter(studied)), q = [];
+      for (let k = 0; q.length < 10 && pool.length; k++) q.push('g:' + pool[k % pool.length]);
+      practiceGrammar(q, '#grammar', 'Práctica de gramática');
+    };
+    $('#rev').onclick = () => go('#review/grammar');
+  }
+
+  function renderGTopic(gid) {
+    const L = GRAMMAR[gid], G = L.grammar, T = GTOPICS.find(t => t.g.includes(gid)), k = T.g.indexOf(gid);
+    const prev = T.g[k - 1], next = T.g[k + 1];
+    say(pick(['Lee. Es corto. Luego practicas y te lo pregunto otro día.', 'Una regla. Una sola. Puedes con ella.', 'Toca las palabras rusas para oírlas. Sí, todas suenan.']), 'neutral');
+    main.innerHTML = `<div class="row" style="margin-bottom:12px"><a class="btn ghost" href="#grammar">◂ ${esc(T.title)}</a><span class="grow"></span>
+        ${prev ? `<a class="btn ghost" href="#grammar/${prev}" title="Anterior">‹</a>` : ''}${next ? `<a class="btn ghost" href="#grammar/${next}" title="Siguiente">›</a>` : ''}</div>
+      <div class="card"><div class="kicker">${esc(T.title)} · ${k + 1} de ${T.g.length}</div><h1>${show(G.title)}</h1>
+        <div class="grammar-body">${rich(G.body)}</div>
+        <div class="row" style="margin-top:8px"><button class="btn primary" data-enter id="prac">Practicar (${G.drills.length} ejercicios)</button>
+        <span class="grow"></span><span class="muted small">Viene de la lección ${lessonNum(L)}${unlocked(L) ? ' · <a href="#lesson/' + L.id + '">ver la conversación</a>' : ''}</span></div></div>`;
+    $('#prac').onclick = () => practiceGrammar(G.drills.map(() => 'g:' + gid), '#grammar/' + gid, show(G.title), next && ('#grammar/' + next));
+  }
+  /* cada ejercicio de un tema sale una vez, en orden aleatorio */
+  function practiceGrammar(queue, back, label, nextHash) {
+    const order = {}, before = new Set(Object.keys(S.cards));
+    runSession({
+      queue, mode: 'grammar', label, head: '', back,
+      pickJ: (id, n) => { order[id] = order[id] && order[id].length ? order[id] : shuffle([...Array(n).keys()]); return order[id].shift(); },
+      frozen: id => before.has(id) && S.cards[id].due > Date.now(),
+      done: res => {
+        markDay(); save(); sfx('done');
+        say(res.ok === res.total ? 'Todo bien a la primera. Sospechoso. Muy bien.' : 'Bien. Lo que fallaste vuelve en el repaso. Para eso está.', res.ok === res.total ? 'happy' : 'smirk');
+        main.innerHTML = `<div class="card center"><div class="kicker">Gramática</div><p class="big-num">${res.ok}/${res.total}</p><p>a la primera · +${res.xp} XP</p>
+          <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="back">Volver</button>${nextHash ? '<button class="btn primary" data-enter id="nx">Siguiente tema</button>' : ''}</div></div>`;
+        $('#back').onclick = () => go(back);
+        const n = $('#nx'); if (n) n.onclick = () => go(nextHash);
+      },
+    });
   }
 
   /* ───────── ajustes ───────── */
@@ -987,12 +1247,13 @@
         ${sw('autoplay', 'Audio automático', 'Lee en voz alta cada frase nueva.')}
         ${sw('typing', 'Ejercicios de escribir', 'Con teclado ruso en pantalla, para las tarjetas más maduras.')}
         ${sw('sfx', 'Sonidos', 'Pitidos de acierto y error.')}
-        ${sw('unlockAll', 'Desbloquear todas las lecciones', 'Si ya sabes algo de ruso y quieres saltar.')}
+        ${sw('unlockAll', 'Desbloquear todas las lecciones', 'Si ya sabes algo de ruso y quieres saltar en los diálogos.')}
       </div>
       <div class="card">
         <div class="set"><label>Motor de voz<small>«Masha»: voces neuronales rusas grabadas para cada frase, con el acento correcto. «Navegador»: la voz de tu sistema.</small></label><span class="seg">${[['neural', 'Masha'], ['browser', 'Navegador']].map(([v, l]) => `<button data-eng="${v}" class="${S.set.engine === v ? 'on' : ''}">${l}</button>`).join('')}</span> <button class="btn ghost" id="test">Probar</button></div>
         <div class="set"><label for="s-voice">Voz del navegador<small>Se usa con el motor «Navegador», para tu nombre y para las palabras sueltas.</small></label>${voices}</div>
         <div class="set"><label for="s-rate">Velocidad de la voz<small id="ratev">${S.set.rate.toFixed(2)}×</small></label><input type="range" id="s-rate" min="0.6" max="1.3" step="0.05" value="${S.set.rate}"></div>
+        <div class="set"><label for="s-new">Palabras nuevas por tanda<small>Cuántas palabras te presento cada vez en «Palabras».</small></label><select id="s-new">${[5, 10, 15, 20].map(n => `<option ${n === S.set.newWords ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div class="set"><label for="s-limit">Tarjetas por sesión de repaso<small>Las que sobren quedan para la siguiente.</small></label><select id="s-limit">${[20, 40, 60, 100, 200].map(n => `<option ${n === S.set.limit ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       </div>
       <div class="card">
@@ -1017,6 +1278,7 @@
     };
     $('#s-rate').oninput = e => { S.set.rate = +e.target.value; $('#ratev').textContent = S.set.rate.toFixed(2) + '×'; save(); };
     $('#s-limit').onchange = e => { S.set.limit = +e.target.value; save(); };
+    $('#s-new').onchange = e => { S.set.newWords = +e.target.value; save(); };
     $('#exp').onclick = () => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' }));
@@ -1039,6 +1301,7 @@
 
   /* ───────── arranque ───────── */
   updateBadge();
-  route();
+  /* si ya hay palabras en el repaso, se cargan antes de mostrar nada, para contarlas */
+  (Object.keys(S.cards).some(id => id[0] === 'v') ? ensureVocab().catch(() => {}) : Promise.resolve()).then(route);
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
