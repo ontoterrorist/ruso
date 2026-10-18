@@ -107,9 +107,15 @@
     const v = voice(); if (v) u.voice = v;
     u.rate = (S.set.rate || 1) * 0.85;
     u.pitch = opt.pitch || 1;
-    let ended = false;
-    const end = () => { if (ended) return; ended = true; if (opt.masha) M.talk(false); if (opt.done) opt.done(); };
-    u.onstart = () => { if (opt.masha) M.talk(true); };
+    let ended = false, started = false;
+    const end = () => { if (ended) return; ended = true; clearTimeout(guard); if (opt.masha) M.talk(false); if (opt.done) opt.done(); };
+    /* algunos navegadores (Safari en iPhone) ignoran la voz del sistema fuera de un toque y no avisan:
+       si no empieza o no termina a tiempo, se sigue igual para que nada se quede colgado */
+    let guard = setTimeout(() => { if (!started) end(); }, 2500);
+    u.onstart = () => {
+      started = true; if (opt.masha) M.talk(true);
+      clearTimeout(guard); guard = setTimeout(end, 4000 + u.text.length * 150);
+    };
     u.onend = end; u.onerror = end;
     synth.speak(u);
   }
@@ -183,6 +189,8 @@
         if (why) report(false, why);
         browserSay(q.name || q.text, { done: next, masha, pitch: opt.pitch });
       };
+      /* con el motor de Masha, el nombre de quien estudia se deja como una pausa breve */
+      if (q.name && S.set.engine !== 'browser') return setTimeout(next, 250);
       if (q.name || S.set.engine === 'browser') return fallback();
       const url = 'audio/' + cyrb53(vid + '|' + q.text) + '.mp3';
       player.onplaying = () => { if (token !== voiceToken) return; if (masha) M.talk(true); report(true); };
