@@ -1,6 +1,6 @@
 /* Ruso Advance — service worker: guarda la app en el teléfono para usarla sin conexión. */
 const PREFIX = 'ruso-advance-';
-const CACHE = PREFIX + 'v3';
+const CACHE = PREFIX + 'v4';
 const AUDIO = PREFIX + 'audio';
 const SHELL = ['./', 'index.html', 'styles.css', 'masha.js', 'data.js', 'app.js', 'manifest.webmanifest', 'avatar/pixel.js',
   'lecciones/n03.js', 'lecciones/n04.js', 'lecciones/n05.js', 'lecciones/n06.js', 'lecciones/n07.js', 'lecciones/n08.js', 'lecciones/n09.js', 'lecciones/n10.js',
@@ -16,9 +16,22 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || !req.url.startsWith(self.registration.scope)) return;
-  /* los audios no cambian nunca (el nombre es un hash del texto): primero la copia guardada */
+  /* Audios: si ya están guardados, salen de la copia (troceada si el navegador pide un rango, como hace
+     Safari); si no, pasan directo a la red sin tocarlos. La página guarda cada audio cuando termina de sonar. */
   if (req.url.includes('/audio/')) {
-    e.respondWith(caches.open(AUDIO).then(c => c.match(req).then(h => h || fetch(req).then(res => { if (res && res.ok) c.put(req, res.clone()); return res; }))));
+    e.respondWith(caches.open(AUDIO).then(c => c.match(req.url)).then(hit => {
+      if (!hit) return fetch(req);
+      const range = req.headers.get('range');
+      if (!range) return hit;
+      return hit.arrayBuffer().then(buf => {
+        const size = buf.byteLength, m = /bytes=(\d*)-(\d*)/.exec(range) || [];
+        let start = m[1] ? +m[1] : 0, end = m[2] ? Math.min(+m[2], size - 1) : size - 1;
+        if (!m[1] && m[2]) { start = Math.max(0, size - +m[2]); end = size - 1; }
+        return new Response(buf.slice(start, end + 1), { status: 206, statusText: 'Partial Content', headers: {
+          'Content-Type': 'audio/mpeg', 'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
+          'Content-Length': String(end - start + 1), 'Accept-Ranges': 'bytes' } });
+      });
+    }).catch(() => fetch(req)));
     return;
   }
   e.respondWith(caches.open(CACHE).then(c => {

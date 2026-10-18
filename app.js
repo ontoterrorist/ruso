@@ -131,10 +131,30 @@
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
   }
   const voiceId = v => v === 'user' ? (S.g === 'f' ? 'user_f' : 'user_m') : (v || 'masha');
-  let curAudio = null, voiceToken = 0;
+  /* Un solo reproductor para todas las frases. En iPhone, Safari solo deja sonar audio que nace de un toque;
+     un reproductor que ya sonó una vez tras un toque puede volver a sonar después sin problemas. */
+  const player = new Audio();
+  player.preload = 'auto';
+  const SILENCIO = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABAAAAlgAenp6enp6enp6enp6enp6enp6enp6enp6pqampqampqampqampqampqampqampqamptPT09PT09PT09PT09PT09PT09PT09PT09P/////////////////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCcQAAAAAAAAJY+/rsqgAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+  let voiceToken = 0, audioUnlocked = false, warnedBlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    if (!player.src || player.src === location.href) {
+      player.src = SILENCIO;
+      const p = player.play();
+      if (p) p.catch(() => {});
+    }
+  }
+  ['touchend', 'mousedown', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
+  /* guarda en el teléfono los audios que ya sonaron, para usarlos sin conexión */
+  function keepAudio(url) {
+    try { if (window.caches) caches.open('ruso-advance-audio').then(c => c.match(url).then(h => h || c.add(url))).catch(() => {}); } catch (e) { /* nada */ }
+  }
   function stopVoice() {
     voiceToken++;
-    if (curAudio) { curAudio.onended = curAudio.onerror = null; curAudio.pause(); curAudio = null; }
+    player.onplaying = player.onended = player.onerror = null;
+    try { player.pause(); } catch (e) { /* nada */ }
     if (synth) synth.cancel();
     M.talk(false);
   }
@@ -142,8 +162,10 @@
     opt = opt || {};
     stopVoice();
     if (!text) { if (opt.done) opt.done(); return; }
+    audioUnlocked = true;
     const token = voiceToken, vid = voiceId(opt.voice);
     const masha = opt.masha !== undefined ? opt.masha : vid === 'masha';
+    const report = opt.report || (() => {});
     const raw = resolveG(String(text).replace(/\u0301/g, "'"));
     const queue = [];
     raw.split('{name}').forEach((part, i) => {
@@ -156,16 +178,27 @@
       if (token !== voiceToken) return;
       if (i >= queue.length) { if (masha) M.talk(false); if (opt.done) opt.done(); return; }
       const q = queue[i++];
-      const fallback = () => { if (token === voiceToken) browserSay(q.name || q.text, { done: next, masha, pitch: opt.pitch }); };
+      const fallback = why => {
+        if (token !== voiceToken) return;
+        if (why) report(false, why);
+        browserSay(q.name || q.text, { done: next, masha, pitch: opt.pitch });
+      };
       if (q.name || S.set.engine === 'browser') return fallback();
-      const a = new Audio('audio/' + cyrb53(vid + '|' + q.text) + '.mp3');
-      curAudio = a;
-      a.playbackRate = S.set.rate || 1;
-      a.onplaying = () => { if (masha && token === voiceToken) M.talk(true); };
-      a.onended = () => { if (masha) M.talk(false); next(); };
-      a.onerror = fallback;
-      const p = a.play();
-      if (p) p.catch(err => { if (err && err.name === 'NotAllowedError') { if (masha) M.talk(false); } else fallback(); });
+      const url = 'audio/' + cyrb53(vid + '|' + q.text) + '.mp3';
+      player.onplaying = () => { if (token !== voiceToken) return; if (masha) M.talk(true); report(true); };
+      player.onended = () => { if (token !== voiceToken) return; if (masha) M.talk(false); keepAudio(url); next(); };
+      player.onerror = () => fallback('no se pudo cargar el audio (error ' + (player.error ? player.error.code : '?') + ')');
+      player.src = url;
+      player.defaultPlaybackRate = player.playbackRate = S.set.rate || 1;
+      const p = player.play();
+      if (p) p.catch(err => {
+        if (token !== voiceToken || !err || err.name === 'AbortError') return;
+        if (err.name === 'NotAllowedError') {
+          if (masha) M.talk(false);
+          report(false, 'el navegador bloqueó el sonido');
+          if (!warnedBlocked) { warnedBlocked = true; toast('Toca 🔊 para oír la frase'); }
+        } else fallback(err.name);
+      });
     };
     next();
   }
@@ -950,7 +983,14 @@
     $$('[data-tr]').forEach(b => b.onclick = () => { S.set.trans = b.dataset.tr; save(); renderSettings(); });
     $$('[data-eng]').forEach(b => b.onclick = () => { S.set.engine = b.dataset.eng; save(); renderSettings(); });
     const sv = $('#s-voice'); if (sv) sv.onchange = () => { S.set.voice = sv.value; save(); };
-    $('#test').onclick = () => speak("Я Ма'ша. А как тебя' зову'т?", { voice: 'masha' });
+    $('#test').onclick = () => {
+      let said = false;
+      speak("Я Ма'ша. А как тебя' зову'т?", { voice: 'masha', report: (ok, why) => {
+        if (said) return; said = true;
+        toast(ok ? '✓ La voz de Masha funciona' : '✗ Sin voz: ' + why);
+      } });
+      setTimeout(() => { if (!said) { said = true; toast('✗ El audio no empezó. Revisa el volumen y el modo silencio.'); } }, 6000);
+    };
     $('#s-rate').oninput = e => { S.set.rate = +e.target.value; $('#ratev').textContent = S.set.rate.toFixed(2) + '×'; save(); };
     $('#s-limit').onchange = e => { S.set.limit = +e.target.value; save(); };
     $('#exp').onclick = () => {
