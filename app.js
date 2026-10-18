@@ -81,7 +81,9 @@
     return out;
   }
   /* ruso con transliteración opcional debajo */
-  const ruHTML = (s, cls) => '<span class="ru ' + (cls || '') + '">' + show(s) + '</span>' + (S.set.translit && isCyr(s) ? '<span class="tr">' + esc(translit(s)) + '</span>' : '');
+  /* en la lección de lectura (la 0) no se muestra la transliteración: el ejercicio es leer cirílico */
+  let readingMode = false;
+  const ruHTML = (s, cls) => '<span class="ru ' + (cls || '') + '">' + show(s) + '</span>' + (S.set.translit && !readingMode && isCyr(s) ? '<span class="tr">' + esc(translit(s)) + '</span>' : '');
   /* textos propios con HTML (notas, frases de Masha): solo se escapa el nombre; el ruso entre [[ ]] se vuelve tocable */
   const rich = s => stress(resolve(String(s).replace(/\{name\}/g, esc(S.name || 'amigo')))).replace(/\[\[(.+?)\]\]/g, (m, t) => '<span class="say" data-say="' + esc(t) + '">' + t + '</span>');
 
@@ -319,13 +321,17 @@
 
   /* ───────── lecciones: desbloqueo ───────── */
   const isDone = L => !!S.done[L.id];
-  const nextLesson = () => LESSONS.find(L => !isDone(L));
-  const unlocked = L => S.set.unlockAll || isDone(L) || L === nextLesson();
+  const lessonNum = L => parseInt(L.id.slice(1), 10);
+  /* la lección 0 (alfabeto) es la primera para quien empieza; quien ya avanzó puede hacerla cuando quiera */
+  const started = () => LESSONS.some(L => L.level > 0 && isDone(L));
+  const nextLesson = () => LESSONS.find(L => !isDone(L) && !(L.level === 0 && started()));
+  const unlocked = L => S.set.unlockAll || isDone(L) || L === nextLesson() || L.level === 0;
 
   /* ───────── navegación ───────── */
   const main = $('#main');
   function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
   function route() {
+    readingMode = false;
     if (synth) synth.cancel();
     M.talk(false);
     if (!S.name || !S.g) return renderOnboard();
@@ -437,7 +443,7 @@
           <button class="btn ${due ? 'primary' : ''} wide" id="goRev" ${due ? 'data-enter' : 'disabled'}>Repasar</button>
         </div>
         <div class="card">
-          <div class="kicker">${nl ? 'Lección ' + (LESSON_IDX[nl.id] + 1) + ' · Nivel ' + nl.level : 'Curso terminado'}</div>
+          <div class="kicker">${nl ? 'Lección ' + lessonNum(nl) + ' · Nivel ' + nl.level : 'Curso terminado'}</div>
           ${nl ? `<h2 class="ru">${show(nl.ru)}</h2><p class="muted">${esc(nl.es)}</p>
           <button class="btn ${due ? '' : 'primary'} wide" id="goLes" ${due ? '' : 'data-enter'}>Empezar lección</button>`
           : '<p>Terminaste las 24 lecciones. Ahora el repaso es tu vida. Y puedes repetir cualquier conversación.</p><button class="btn wide" id="goPath">Ver lecciones</button>'}
@@ -467,7 +473,7 @@
         <summary class="level-head"><h2>Nivel ${lv.id} · <span class="ru">${show(lv.ru)}</span></h2><span class="muted small grow">${esc(lv.es)} — ${esc(lv.note)}</span>
           <span class="lv-prog" title="${nd} de ${ls.length}"><i style="width:${Math.round(nd / ls.length * 100)}%"></i></span><b class="small">${nd}/${ls.length}</b></summary>
         <div class="lessons">${ls.map(L => {
-          const i = LESSON_IDX[L.id] + 1, d = isDone(L), u = unlocked(L);
+          const i = lessonNum(L), d = isDone(L), u = unlocked(L);
           return `<button class="lesson-tile ${d ? 'done' : ''} ${L === nl ? 'next' : ''} ${u ? '' : 'locked'}" data-l="${L.id}" ${u ? '' : 'aria-disabled="true"'}>
             <span class="n">${i}</span><span class="st">${d ? '✓ hecha' : L === nl ? '▶ siguiente' : u ? '' : '🔒'}</span>
             <span class="t">${show(L.ru)}</span><span class="s">${esc(L.es)}</span></button>`;
@@ -487,7 +493,7 @@
   const STAGES = ['Escena', 'Diálogo', 'Frases', 'Gramática', 'Práctica'];
   function stepsBar(k) { return '<div class="steps" aria-label="Paso ' + (k + 1) + ' de 5">' + STAGES.map((s, i) => '<span class="' + (i < k ? 'done' : i === k ? 'on' : '') + '" title="' + s + '"></span>').join('') + '</div>'; }
   function lessonHead(L, k) {
-    return stepsBar(k) + '<div class="kicker">Lección ' + (LESSON_IDX[L.id] + 1) + ' · ' + STAGES[k] + '</div>';
+    return stepsBar(k) + '<div class="kicker">Lección ' + lessonNum(L) + ' · ' + STAGES[k] + '</div>';
   }
 
   function renderLesson(L) {
@@ -508,7 +514,8 @@
   function stageDialog(L) {
     const hideTrans = S.set.trans === 'hide' || (S.set.trans === 'auto' && L.level > 1);
     let showOpts = !hideTrans;
-    let i = 0, mistakes = 0;
+    let i = 0, mistakes = 0, hidden = null;
+    readingMode = !!L.reading;
     main.innerHTML = lessonHead(L, 1) + `<div class="card"><div class="toolbar">
         <button class="chip ${showOpts ? 'on' : ''}" id="tt">Traducción</button>
         <button class="chip ${S.set.translit ? 'on' : ''}" id="tl">Transliteración</button></div>
@@ -521,12 +528,15 @@
       const who = me ? esc(S.name) : st.who ? show(SPEAKERS[st.who].name) : 'Маша';
       const d = document.createElement('div');
       d.className = 'msg' + (me ? ' me' : '');
-      d.innerHTML = '<div class="head">' + who + '</div><div class="line"><div class="grow">' + ruHTML(st.ru) +
-        '<span class="es ' + (showOpts ? '' : 'hid') + '" title="Toca para ver">' + esc(resolve(st.es)) + '</span></div>' +
+      /* en la lección de lectura, Masha dice la palabra y no se ve escrita hasta que eliges la correcta */
+      const ruPart = st.hide && L.reading ? '<span class="ru hide-slot">🔊 · · ·</span>' : ruHTML(st.ru);
+      d.innerHTML = '<div class="head">' + who + '</div><div class="line"><div class="grow">' + ruPart +
+        '<span class="es ' + (showOpts || L.reading ? '' : 'hid') + '" title="Toca para ver">' + esc(resolve(st.es)) + '</span></div>' +
         sayBtn(st.ru, '', me ? 'user' : (st.who || 'masha')) + '</div>';
       const es = $('.es', d); es.onclick = () => es.classList.remove('hid');
       chat.appendChild(d);
       d.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (st.hide && L.reading) hidden = { d, st };
       return d;
     }
     function step() {
@@ -553,7 +563,7 @@
       const k = st.k || 1;
       const opts = shuffle(st.u.map((o, j) => ({ ru: o[0], es: o[1], c: o[2], ok: j < k })));
       act.innerHTML = '<div class="choices">' + opts.map((o, j) =>
-        '<button class="choice" data-k="' + (j + 1) + '" data-j="' + j + '">' + ruHTML(o.ru) + '<span class="es" ' + (showOpts ? '' : 'hidden') + '>' + esc(resolve(o.es)) + '</span></button>').join('') + '</div>';
+        '<button class="choice" data-k="' + (j + 1) + '" data-j="' + j + '">' + ruHTML(o.ru) + '<span class="es" ' + (showOpts && !L.reading ? '' : 'hidden') + '>' + esc(resolve(o.es)) + '</span></button>').join('') + '</div>';
       $$('.choice', act).forEach(b => b.onclick = () => {
         const o = opts[+b.dataset.j];
         if (!o.ok) {
@@ -563,6 +573,7 @@
         }
         sfx('ok');
         $$('.choice', act).forEach(x => x.disabled = true);
+        if (hidden) { const slot = $('.hide-slot', hidden.d); if (slot) slot.outerHTML = ruHTML(hidden.st.ru); hidden = null; }
         const d = bubble({ ru: o.ru, es: o.es }, true);
         if (S.set.autoplay) speak(o.ru, { voice: 'user' });
         if (o.c) say(o.c, pick(['smirk', 'pleased']));
@@ -601,6 +612,7 @@
   }
 
   function stagePhrases(L) {
+    readingMode = false;
     say('Estas son las frases que importan. Escúchalas. Repítelas en voz alta. Sí, en voz alta. Nadie te oye. Bueno, Pelmén.', 'neutral');
     main.innerHTML = lessonHead(L, 2) + `<div class="card">
       <div class="row" style="margin-bottom:6px"><h2 class="grow" style="margin:0">Frases clave</h2><button class="btn ghost" id="all">🔊 Todas</button></div>
@@ -648,6 +660,7 @@
     const first = !isDone(L);
     S.done[L.id] = { at: Date.now(), n: ((S.done[L.id] || {}).n || 0) + 1 };
     lessonCards(L).forEach(id => { if (!S.cards[id]) S.cards[id] = { ...newCard(), due: dueIn(1) }; });
+    if (L.addAlphabet) ALPHABET.forEach((_, i) => { if (!S.cards['a:' + i]) S.cards['a:' + i] = { ...newCard(), due: dueIn(1) }; });
     const xp = (first ? 50 : 15) + res.ok * 2;
     S.xp += xp; markDay(); save();
     sfx('done');
@@ -731,7 +744,7 @@
       else kinds = [canType ? 'type' : 'es2ru', canTiles ? 'tiles' : 'listen', 'listen'];
       return { id, C, kind: pick(kinds) };
     }
-    if (C.t === 'c') return { id, C, kind: ivl >= 7 ? 'conv-listen' : 'conv' };
+    if (C.t === 'c') return { id, C, kind: ivl >= 7 || C.L.reading ? 'conv-listen' : 'conv' };
     if (C.t === 'g') {
       const d = C.G.drills;
       let j = Math.floor(Math.random() * d.length);
@@ -757,6 +770,7 @@
     }
     function render(ex) {
       const C = ex.C;
+      readingMode = !!(C.L && C.L.reading);
       let body = '', options = null, answerRu = '', autoAudio = '', check = null;
       const isNew = o.mode === 'lesson' && !S.cards[ex.id];
       if (ex.kind === 'ru2es' || ex.kind === 'listen') {
@@ -883,6 +897,7 @@
       else if (right) say(run >= 3 && run % 3 === 0 ? line('streak') : line('right'), run >= 3 ? 'happy' : pick(['pleased', 'smirk', 'neutral']));
       else say(line('wrong'), pick(['annoyed', 'sad', 'eyeroll']));
 
+      readingMode = false;
       let html = '<div class="feedback ' + (right ? 'ok' : 'bad') + '"><h3>' + (right ? (info.typo ? 'Casi perfecto' : pick(['Правильно!', 'Хорошо!', 'Верно!'])) : 'Не совсем…') + '</h3>';
       if (info.answerRu) html += '<div class="row">' + sayBtn(info.answerRu, '', info.voice) + '<div class="grow">' + ruHTML(info.answerRu) + (ex.C.es && ex.C.t === 'p' ? '<span class="es">' + esc(resolve(ex.C.es)) + '</span>' : '') + '</div></div>';
       if (ex.kind.startsWith('conv')) html += '<p class="small muted" style="margin-top:6px">' + show(ex.C.prompt.ru) + ' — ' + esc(resolve(ex.C.prompt.es)) + '</p>';
@@ -950,7 +965,7 @@
     say('Todas las notas de gramática que ya viste. Las que faltan se abren con cada lección. No hagas trampa leyéndolas antes. Bueno, puedes. No te veo.', 'neutral');
     main.innerHTML = tabs + LESSONS.map(L => {
       const G = L.grammar, open = isDone(L) || S.set.unlockAll;
-      return `<details class="gnote ${open ? '' : 'locked'}" ${open ? '' : 'data-locked'}><summary><span class="grow">${show(G.title)}</span><span class="muted">Lección ${LESSON_IDX[L.id] + 1}${open ? '' : ' 🔒'}</span></summary>${open ? '<div class="grammar-body">' + rich(G.body) + '</div>' : ''}</details>`;
+      return `<details class="gnote ${open ? '' : 'locked'}" ${open ? '' : 'data-locked'}><summary><span class="grow">${show(G.title)}</span><span class="muted">Lección ${lessonNum(L)}${open ? '' : ' 🔒'}</span></summary>${open ? '<div class="grammar-body">' + rich(G.body) + '</div>' : ''}</details>`;
     }).join('');
     $$('details[data-locked]').forEach(d => d.addEventListener('toggle', () => { if (d.open) { d.open = false; say('Esa nota se abre con su lección. Todo a su tiempo.', 'annoyed'); } }));
   }

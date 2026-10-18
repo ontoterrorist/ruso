@@ -19,7 +19,9 @@ Cada lección tiene cinco pasos:
 
 Todo lo que practicas entra al **repaso con repetición espaciada** (una variante de SM-2, el algoritmo de Anki): si aciertas, la tarjeta vuelve más tarde (1 día, 3, 8, 20…); si fallas, vuelve pronto. La gramática también son tarjetas: cada vez sale con un ejemplo distinto, para entender la regla y no memorizar una frase. Los ejercicios se vuelven más difíciles a medida que la tarjeta madura: primero reconocer, después producir, luego escuchar, ordenar palabras y escribir en cirílico.
 
-## 120 lecciones en 10 niveles
+## Una clase cero y 120 lecciones en 10 niveles
+
+Antes del nivel 1 está la **clase 0 · Алфави́т**: Masha dice palabras sin mostrarlas escritas y tú eliges cuál es entre otras que se parecen (кот / ток / так). Así recorres las letras «amigas» (А, К, М, О, Т), las «traicioneras» (В, Н, Р, С, У, Х, Е) y las nuevas (Ж, Ш, Ч, Ц, Ы, Я…). La gramática explica los signos Ь y Ъ, el acento, la О sin acento que suena casi A (молоко́ suena «malakó») y las consonantes finales que se ensordecen (хлеб suena «jliep»). Es la única lección sin transliteración en el diálogo: hay que leer cirílico. Al terminarla, las 33 letras entran al repaso. Si ya empezaste el nivel 1, no se te propone, pero sigue disponible en Lecciones.
 
 | Nivel | Historia | Gramática |
 |---|---|---|
@@ -34,7 +36,7 @@ Todo lo que practicas entra al **repaso con repetición espaciada** (una variant
 | 9 · Лето на даче | Verano en la dacha: setas, mosquitos, Pelmén perdido, una gran noticia | Aspecto avanzado, prefijos de matiz, partículas, conjunciones de tiempo, numerales declinados |
 | 10 · Свободно | Un bebé, Masha directora, contar tu historia, las noches blancas | Получаться, condicional pasado, coloquial, exclamaciones, argumentar, pasiva, los seis casos |
 
-En total: 120 lecciones, 969 frases clave, 296 tarjetas de conversación y 120 nociones de gramática con 620 ejercicios. También hay una sección con el alfabeto (con audio), que se puede añadir al repaso.
+En total: 120 lecciones, 969 frases clave, 296 tarjetas de conversación y 120 nociones de gramática con 620 ejercicios. Además está la clase 0, y una sección con el alfabeto (con audio) que se puede añadir al repaso.
 
 ## Motor de voz
 

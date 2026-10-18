@@ -23,7 +23,7 @@ const ids = new Set();
 LESSONS.forEach((L, i) => {
   const W = L.id;
   if (ids.has(L.id)) errs.push('id repetido ' + L.id); ids.add(L.id);
-  if (L.id !== 'l' + (i + 1)) errs.push('orden: ' + L.id + ' en posición ' + (i + 1));
+  if (L.id !== 'l' + (i + parseInt(LESSONS[0].id.slice(1), 10))) errs.push('orden: ' + L.id + ' en posición ' + (i + 1));
   if (!LEVELS.find(l => l.id === L.level)) errs.push(W + ': nivel inexistente ' + L.level);
   checkRu(L.ru, W + '.ru');
   L.dialog.forEach((st, j) => {
