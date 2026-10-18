@@ -5,9 +5,8 @@ import numpy as np, soundfile as sf
 from multiprocessing import Pool
 import build_dict
 
-BASE = os.environ.get('RUSO_TTS', os.path.expanduser('~/ruso-tts'))
-
-# voz Piper, semitonos, velocidad (length_scale: >1 más lento)
+# voz Piper, semitonos, velocidad (length_scale: >1 más lento) y, opcional, semitonos extra
+# que suben solo el tono y conservan el timbre (rubberband), para no sonar a ardilla
 VOICE_CFG = {
     'masha': ('irina', 0, 1.05), 'olga': ('irina', -2, 1.1), 'waiter': ('dmitri', 0, 1.0),
     'seller': ('irina', 1.5, 1.0), 'doctor': ('denis', 0, 1.05), 'vadim': ('denis', 1, 0.95),
@@ -15,7 +14,7 @@ VOICE_CFG = {
     'galia': ('irina', -3, 1.15), 'katia': ('irina', 2.5, 0.95), 'woman': ('irina', -1, 1.0),
     'passer': ('denis', -1, 1.0), 'provod': ('irina', -0.5, 1.05), 'sergei': ('dmitri', -1.5, 1.05),
     'student': ('irina', -3.5, 1.1), 'arkady': ('denis', -2.5, 1.1), 'dima': ('denis', 2, 0.9),
-    'user_m': ('denis', 0, 1.05), 'user_f': ('irina', 3, 1.05),
+    'user_m': ('denis', 0, 1.05), 'user_f2': ('irina', 1, 0.97, 2.5),
 }
 M32 = 0xffffffff
 
@@ -60,8 +59,8 @@ def work(it):
     text = it['text']
     forms = build_dict.stress_forms(text)
     use_alt = any(f in ALT and n == ALT[f] for f, n in forms)
-    piper_synth.ESDATA = os.path.join(BASE, 'esdata_alt') if use_alt else os.path.join(BASE, 'esdata')
-    vname, semi, speed = VOICE_CFG[it['voice']]
+    piper_synth.ESDATA = '/home/user/tts/esdata_alt' if use_alt else '/home/user/tts/esdata'
+    vname, semi, speed, *rest = VOICE_CFG[it['voice']]
     audio, sr, ph = piper_synth.synth(text.replace("'", ''), vname, length_scale=speed)
     peak = float(np.max(np.abs(audio))) or 1.0
     audio = audio / peak * 0.89
@@ -72,7 +71,11 @@ def work(it):
         af = []
         if semi:
             r = 2 ** (semi / 12)
-            af = ['-af', f'asetrate={sr}*{r:.5f},aresample={sr},atempo={1 / r:.5f}']
+            af = [f'asetrate={sr}*{r:.5f},aresample={sr},atempo={1 / r:.5f}']
+        if rest:
+            af.append(f'rubberband=pitch={2 ** (rest[0] / 12):.5f}:formant=preserved')
+        if af:
+            af = ['-af', ','.join(af)]
         subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', tf.name, *af, '-ac', '1', '-ar', '22050',
                         '-c:a', 'libmp3lame', '-b:a', '32k', out], check=True)
         os.unlink(tf.name)

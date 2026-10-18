@@ -12,8 +12,8 @@ function add(text, voice) {
   if (!isCyr(text)) return;
   const forms = /\{[^{}|]*\|/.test(text) ? [['m', gender(text, 'm')], ['f', gender(text, 'f')]] : [[null, text]];
   for (const [g, t] of forms) {
-    const v = voice === 'user' ? (g === 'f' ? 'user_f' : g === 'm' ? 'user_m' : null) : voice;
-    if (voice === 'user' && !g) { add2(t, 'user_m'); add2(t, 'user_f'); } else add2(t, v);
+    const v = voice === 'user' ? (g === 'f' ? 'user_f2' : g === 'm' ? 'user_m' : null) : voice;
+    if (voice === 'user' && !g) { add2(t, 'user_m'); add2(t, 'user_f2'); } else add2(t, v);
   }
 }
 function add2(t, v) { for (const part of t.split('{name}')) { const p = part.trim(); if (isCyr(p)) items.push({ text: p, voice: v }); } }
