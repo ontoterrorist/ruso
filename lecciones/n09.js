@@ -2,7 +2,7 @@
 LESSONS.push(
   {
     id: 'l97', level: 9, ru: "Не забу'дь!", es: '¡No te olvides!',
-    scene: 'Julio. Toda la familia va a la dacha (casa de campo) de los padres de Masha, cerca de Ekaterimburgo. Masha hace la lista. La lista tiene dos páginas.',
+    scene: 'Julio. Toda la familia va a la dacha (casa de campo) de los padres de Masha, cerca de Moscú. Masha hace la lista. La lista tiene dos páginas.',
     intro: 'Hoy: el aspecto en órdenes negativas. «No hace falta llamar» frente a «¡no te olvides!». Una advertencia es perfectiva. Una prohibición, imperfectiva.',
     dialog: [
       { ru: "Не забу'дь сре'дство от комаро'в! Без него' ты не вы'живешь.", es: '¡No te olvides del repelente! Sin él no sobrevivirás.' },

@@ -132,14 +132,14 @@ const LESSONS = [
   },
   {
     id: 'l3', level: 1, ru: "Отку'да ты?", es: '¿De dónde eres?',
-    scene: 'Masha quiere saber de dónde eres. Ella es de los Urales, pero vive en San Petersburgo. Donde siempre llueve.',
+    scene: 'Masha quiere saber de dónde eres. Ella es de Moscú, pero vive en San Petersburgo. Donde siempre llueve.',
     intro: 'Hoy hablamos de dónde eres y dónde vives. Y de la lluvia. Siempre hablo de la lluvia.',
     dialog: [
       { ru: "Отку'да ты, {name}?", es: '¿De dónde eres, {name}?' },
       { u: [["Я из Ме'ксики.", 'Soy de México.', 'México. Tacos. Sol. Te odio un poco.'], ["Я из Испа'нии.", 'Soy de España.', 'España. Sol. Jamón. Te odio un poco.'], ["Я из Аргенти'ны.", 'Soy de Argentina.', 'Argentina. Mate. Tango. Te odio un poco.'], ["Я Ме'ксика.", 'Yo México.', '¿Tú eres México? ¿Todo el país? Falta «из».']], k: 3 },
-      { ru: "Здо'рово! А я из Екатеринбу'рга.", es: '¡Genial! Yo soy de Ekaterimburgo.' },
-      { u: [["Где э'то?", '¿Dónde está eso?'], ["Кто э'то?", '¿Quién es?', '¿Quién? Es una ciudad, no una persona.'], ["Как дела'?", '¿Cómo estás?', 'Bien. Pero no respondiste nada.']] },
-      { ru: "Э'то на Ура'ле. Далеко'. Но сейча'с я живу' в Петербу'рге. А где ты живёшь?", es: 'En los Urales. Lejos. Pero ahora vivo en Petersburgo. ¿Y tú dónde vives?' },
+      { ru: "Здо'рово! А я из Москвы'.", es: '¡Genial! Yo soy de Moscú.' },
+      { u: [["Из Москвы'? Здо'рово!", '¿De Moscú? ¡Genial!'], ["Кто э'то?", '¿Quién es?', '¿Quién? Moscú es una ciudad. La capital. No una persona.'], ["Как дела'?", '¿Cómo estás?', 'Bien. Pero no respondiste nada.']] },
+      { ru: "Да, там моя' семья'. Но сейча'с я живу' в Петербу'рге. А где ты живёшь?", es: 'Sí, allí está mi familia. Pero ahora vivo en Petersburgo. ¿Y tú dónde vives?' },
       { u: [["Я живу' в Мадри'де.", 'Vivo en Madrid.'], ["Я живу' в Ме'хико.", 'Vivo en Ciudad de México.'], ["Я живу' в Буэ'нос-А'йресе.", 'Vivo en Buenos Aires.'], ["Ты живёшь в Петербу'рге.", 'Tú vives en Petersburgo.', 'Eso ya lo sé. Te pregunté por ti.']], k: 3 },
       { ru: "Краси'во. А в Петербу'рге всегда' дождь. Всегда'.", es: 'Bonito. En Petersburgo siempre llueve. Siempre.', e: 'annoyed' },
       { u: [["Ой, жаль.", 'Ay, qué pena.'], ["Отли'чно!", '¡Excelente!', '¿Te alegra mi lluvia?'], ["Я из Испа'нии.", 'Soy de España.', 'Ya hablamos de eso. Concéntrate.']] },

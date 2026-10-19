@@ -1,6 +1,6 @@
 # Aprende ruso
 
-Una app para aprender ruso en el navegador **conversando con Masha**: una profesora de San Petersburgo, medio enojona y bastante cínica, pero amable en el fondo. Vive con su gato Pelmén y toma demasiado té.
+Una app para aprender ruso en el navegador **conversando con Masha**: una moscovita que da clases en San Petersburgo, medio enojona y bastante cínica, pero amable en el fondo. Vive con su gato Pelmén y toma demasiado té.
 
 **Abrirla:** https://ontoterrorist.github.io/ruso/ (con GitHub Pages activado). También funciona en local con cualquier servidor estático.
 
