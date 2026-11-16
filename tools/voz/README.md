@@ -6,7 +6,7 @@ pasando la pronunciación por un diccionario de acentos hecho con las marcas del
 Necesita Python 3 con `onnxruntime`, `numpy` y `soundfile`, además de `espeak-ng` 1.51 y `ffmpeg`.
 Todo lo descargado va en `$RUSO_TTS` (por defecto `~/ruso-tts`):
 
-- las voces `vits-piper-ru_RU-irina-medium`, `-denis-medium` y `-dmitri-medium`
+- las voces `vits-piper-ru_RU-irina-medium`, `-ruslan-medium`, `-denis-medium` y `-dmitri-medium`
   (en las versiones de sherpa-onnx: `github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models`);
 - `es151/dictsource`: las fuentes del diccionario ruso de espeak-ng 1.51 (`ru_list`, `ru_rules`), con
   `ru_list` copiado también como `ru_list.orig`.
@@ -20,3 +20,7 @@ Solo genera los audios que falten. Si cambias un texto, su audio nuevo tendrá o
 «voz|texto»): borra los que ya no se usen.
 
 `qa_asr.py` reconoce una muestra con un modelo ruso de sherpa-onnx y lista las frases peor entendidas.
+
+La voz Ruslan (alumno, id `user_m2`) se entrena con el corpus RUSLAN, de licencia CC BY-NC-SA 4.0: sirve para
+esta app gratuita, no para un uso comercial. Los audios nuevos salen en mp3 de 48 kbps (a 32 kbps se pierde
+todo lo que está sobre 8 kHz y la voz suena apagada).

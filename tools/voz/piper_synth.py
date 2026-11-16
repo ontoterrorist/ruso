@@ -10,6 +10,7 @@ VOICES = {
     'irina': 'vits-piper-ru_RU-irina-medium/ru_RU-irina-medium',
     'denis': 'vits-piper-ru_RU-denis-medium/ru_RU-denis-medium',
     'dmitri': 'vits-piper-ru_RU-dmitri-medium/ru_RU-dmitri-medium',
+    'ruslan': 'vits-piper-ru_RU-ruslan-medium/ru_RU-ruslan-medium',
 }
 _cache = {}
 
@@ -17,7 +18,7 @@ _cache = {}
 def voice(name):
     if name not in _cache:
         p = os.path.join(BASE, VOICES[name])
-        cfg = json.load(open(p + '.onnx.json'))
+        cfg = json.load(open(p + '.onnx.json', encoding='utf8'))
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 4
         opts.intra_op_num_threads = int(os.environ.get('OMP_NUM_THREADS', '4')); sess = ort.InferenceSession(p + '.onnx', opts, providers=['CPUExecutionProvider'])

@@ -48,7 +48,7 @@ En total: 120 lecciones, 969 frases clave, 296 tarjetas de conversación y 120 n
 
 ## Motor de voz
 
-Cada frase rusa del curso tiene su propio audio (unos 17.000: diálogos, frases, gramática, tablas, y cada palabra con su ejemplo), generado con voces neuronales rusas [Piper](https://github.com/rhasspy/piper) (Irina, Denis y Dmitri, con tonos distintos para cada personaje). La pronunciación pasa por un diccionario de acentos construido a partir de las marcas del curso, así que la voz pone el acento donde va (до́рого, его́, сего́дня) y distingue homógrafos como до́ма / дома́. Una muestra se comprobó con un reconocedor de voz ruso (sherpa-onnx): entiende alrededor del 95 % de lo que dice.
+Cada frase rusa del curso tiene su propio audio (unos 17.000: diálogos, frases, gramática, tablas, y cada palabra con su ejemplo), generado con voces neuronales rusas [Piper](https://github.com/rhasspy/piper) (Irina, Ruslan, Denis y Dmitri, con tonos distintos para cada personaje; el alumno usa Ruslan, la más natural de las masculinas). La pronunciación pasa por un diccionario de acentos construido a partir de las marcas del curso, así que la voz pone el acento donde va (до́рого, его́, сего́дня) y distingue homógrafos como до́ма / дома́. Una muestra se comprobó con un reconocedor de voz ruso (sherpa-onnx): entiende alrededor del 95 % de lo que dice.
 
 Los audios están en `audio/` (el nombre es un hash de «voz|texto») y se guardan en el teléfono al oírlos. Si falta alguno, la app usa la voz del navegador. En Ajustes se puede elegir el motor y la velocidad.
 

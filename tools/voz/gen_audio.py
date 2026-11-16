@@ -14,7 +14,7 @@ VOICE_CFG = {
     'galia': ('irina', -3, 1.15), 'katia': ('irina', 2.5, 0.95), 'woman': ('irina', -1, 1.0),
     'passer': ('denis', -1, 1.0), 'provod': ('irina', -0.5, 1.05), 'sergei': ('dmitri', -1.5, 1.05),
     'student': ('irina', -3.5, 1.1), 'arkady': ('denis', -2.5, 1.1), 'dima': ('denis', 2, 0.9),
-    'user_m': ('denis', 0, 1.05), 'user_f2': ('irina', 1, 0.97, 2.5),
+    'user_m2': ('ruslan', 0, 1.05), 'user_f2': ('irina', 1, 0.97, 2.5),
 }
 M32 = 0xffffffff
 
@@ -66,19 +66,20 @@ def work(it):
     audio = audio / peak * 0.89
     pad = np.zeros(int(sr * 0.08), dtype=np.float32)
     audio = np.concatenate([pad, audio, pad])
-    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tf:
-        sf.write(tf.name, audio, sr)
-        af = []
-        if semi:
-            r = 2 ** (semi / 12)
-            af = [f'asetrate={sr}*{r:.5f},aresample={sr},atempo={1 / r:.5f}']
-        if rest:
-            af.append(f'rubberband=pitch={2 ** (rest[0] / 12):.5f}:formant=preserved')
-        if af:
-            af = ['-af', ','.join(af)]
-        subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', tf.name, *af, '-ac', '1', '-ar', '22050',
-                        '-c:a', 'libmp3lame', '-b:a', '32k', out], check=True)
-        os.unlink(tf.name)
+    fd, tmp = tempfile.mkstemp(suffix='.wav')  # cerrado antes de escribir: en Windows no se puede reabrir abierto
+    os.close(fd)
+    sf.write(tmp, audio, sr)
+    af = []
+    if semi:
+        r = 2 ** (semi / 12)
+        af = [f'asetrate={sr}*{r:.5f},aresample={sr},atempo={1 / r:.5f}']
+    if rest:
+        af.append(f'rubberband=pitch={2 ** (rest[0] / 12):.5f}:formant=preserved')
+    if af:
+        af = ['-af', ','.join(af)]
+    subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', tmp, *af, '-ac', '1', '-ar', '22050',
+                    '-c:a', 'libmp3lame', '-b:a', '48k', out], check=True)
+    os.unlink(tmp)
     return 1
 
 

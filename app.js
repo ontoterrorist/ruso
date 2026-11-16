@@ -138,7 +138,7 @@
     h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
   }
-  const voiceId = v => v === 'user' ? (S.g === 'f' ? 'user_f2' : 'user_m') : (v || 'masha');
+  const voiceId = v => v === 'user' ? (S.g === 'f' ? 'user_f2' : 'user_m2') : (v || 'masha');
   /* Un solo reproductor para todas las frases. En iPhone, Safari solo deja sonar audio que nace de un toque;
      un reproductor que ya sonó una vez tras un toque puede volver a sonar después sin problemas. */
   const player = new Audio();
